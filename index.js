@@ -30,7 +30,7 @@ const _getHistoricRates = async (client) => {
   // only updates every 5 mins
   const rates = await client.getProductHistoricRates(
     config.INSTRUMENT,
-    { start: '2020-08-22T00:00:00+0100', end:'2020-08-22T04:00:00+0100', granularity: 60 }
+    { start: '2020-08-22T12:00:00+0100', end:'2020-08-22T16:00:00+0100', granularity: 60 }
   )
 
   //{ start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
@@ -52,8 +52,8 @@ const _executeBuy = (currentPrice, units, time) => {
   return { time: time, msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
 }
 
-const _executeSell = (currentPrice, profitLoss, units, totalValue, time) => {
-  return { time: time, msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units}
+const _executeSell = (currentPrice, profitLoss, units, totalValue, time, hitSL) => {
+  return { time: time, msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units, hitSL: hitSL}
 }
 
 const _executeHold = (currentPrice) => {
@@ -68,10 +68,10 @@ const _executeStrategy = (data) => {
   // executed every time elapsed interval
   const strategy = strategies.greenyNotGreedy(data)
 
-  const _signalStates = ({currentPrice, decision, profitLoss, units, totalValue, time}) => {
+  const _signalStates = ({currentPrice, decision, profitLoss, units, totalValue, time, hitSL}) => {
     const states = {
       'BUY': _executeBuy(currentPrice, units, time),
-      'SELL': _executeSell(currentPrice, profitLoss, units, totalValue, time),
+      'SELL': _executeSell(currentPrice, profitLoss, units, totalValue, time, hitSL),
       'HOLD': _executeHold(currentPrice),
       'NONE': _noCurrentTransactions(),
     }
@@ -192,6 +192,7 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
         let sellCount = 0
         let totalTradesCount = 0
         let goodTradesCount = 0
+        let hitSLCount = 0
         for (const transaction of sessionTransactions) {
           if (transaction.action === 'BUY') {
             totalBuy += transaction.totalValue
@@ -204,18 +205,23 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
             if (transaction.profitLoss > 0) {
               goodTradesCount++
             }
+            if (transaction.hitSL) {
+              hitSLCount++
+            }
           }
         }
         let profitLoss = totalSell - totalBuy
         console.log('-------FINISHED FEED-----')
         console.log('----------------------------------------------')
         console.log('***TRANSACTIONS****')
+        console.log(config.INSTRUMENT)
         console.log(sessionTransactions)
         console.log('***NET PROFIT/LOSS****')
         console.log('PROFIT/LOSS: ' + profitLoss)
         console.log('TOTAL BOUGHT: ' + totalBuy)
         console.log('TOTAL SOLD: ' + totalSell)
         console.log('AVERAGE P/L PER TRADE: ' + averagePL/sellCount)
+        console.log('HIT SL %: ' + (hitSLCount/totalTradesCount*100))
         console.log('PROFITABLE TRADES %: ' + (goodTradesCount/totalTradesCount * 100))
 
         clearInterval(interval)

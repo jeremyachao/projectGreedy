@@ -9,12 +9,13 @@ const config = require('./greenyConfig').greeny
 // @NOTE: risky trading low value crypto's like XRP because as of now, EMA is not the same as trading view
 // @TODO: handle sell for already existing holdings
 // @TODO: handle trying to /sudden close of bot
+// @TODO: gradient calculation to determine better thresholds for TP/SL?
 
 const greeny = ({client, historicRates, currentHoldings, wallet}) => {
   const values = historicRates.priceWithIndicators
   const results = _analyse(config, values, currentHoldings, wallet)
 
-  return {decision: results.decision, currentPrice: results.currentPrice, profitLoss: results.profitLoss, totalValue: results.totalValue, units: results.units, time: results.time }
+  return {decision: results.decision, currentPrice: results.currentPrice, profitLoss: results.profitLoss, totalValue: results.totalValue, units: results.units, time: results.time, hitSL: results.hitSL }
 }
 
 const _analyse = (config, priceData, currentHoldings, wallet) => {
@@ -74,7 +75,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
       decision = 'SELL'
     }
 
-    return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: unitsBought*mostRecentPriceData.price, time: mostRecentPriceData.time}
+    return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: unitsBought*mostRecentPriceData.price, time: mostRecentPriceData.time, hitSL: mostRecentPriceData.price <= stopLossPrice}
   }
   // BUY LOGIC
   if (mostRecentPriceData.price < emaTarget) {

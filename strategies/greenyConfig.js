@@ -11,7 +11,7 @@ exports.greeny = {
   divergenceDistance: (macdPriceLookupPeriod) => { return Math.floor(macdPriceLookupPeriod / 2) },
   // P/L settings
   takeProfitCondition: (currentPrice, threshold) => { return currentPrice >= threshold },
-  stopLossPercentage: 0.03,
+  stopLossPercentage: 0.05,
   // 1 = 100% of money to use per trade
   percentageToUsePerTrade: 1,
 }
