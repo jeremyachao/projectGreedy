@@ -28,7 +28,7 @@ const _getHistoricRates = async (client) => {
   // only updates every 5 mins
   const rates = await client.getProductHistoricRates(
     config.INSTRUMENT,
-    { granularity: 60 }
+    { start: '2020-08-22T00:00:00+0100', end:'2020-08-22T04:00:00+0100', granularity: 60 }
   )
 
   //{ start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
@@ -47,12 +47,12 @@ const _getHistoricRates = async (client) => {
   return historicRates
 }
 
-const _executeBuy = (currentPrice, units, totalValue) => {
-  return { time: Date.now(), msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
+const _executeBuy = (currentPrice, units, time) => {
+  return { time: time, msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
 }
 
-const _executeSell = (currentPrice, profitLoss, units, totalValue) => {
-  return { time: Date.now(), msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units}
+const _executeSell = (currentPrice, profitLoss, units, totalValue, time) => {
+  return { time: time, msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units}
 }
 
 const _executeHold = (currentPrice) => {
@@ -67,10 +67,10 @@ const _executeStrategy = (data) => {
   // executed every time elapsed interval
   const strategy = strategies.greenyNotGreedy(data)
 
-  const _signalStates = ({currentPrice, decision, profitLoss, units, totalValue}) => {
+  const _signalStates = ({currentPrice, decision, profitLoss, units, totalValue, time}) => {
     const states = {
-      'BUY': _executeBuy(currentPrice, units ),
-      'SELL': _executeSell(currentPrice, profitLoss, units, totalValue),
+      'BUY': _executeBuy(currentPrice, units, time),
+      'SELL': _executeSell(currentPrice, profitLoss, units, totalValue, time),
       'HOLD': _executeHold(currentPrice),
       'NONE': _noCurrentTransactions(),
     }
@@ -147,8 +147,6 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
     let testlastStatus = 'NONE'
 
     let cEpochTime = testHistoricPriceIndicator[0].time
-    let d = new Date(cEpochTime * 1000)
-    console.log('TIME FRAME START: ' + d)
     let interval = setInterval(async ()=>{
       if (testCounter < testFeed.length) {
         // NOTE: real version uses counter to countdown and THEN execute strategy
@@ -166,7 +164,9 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
         rsi = greenyIndicators.rsi
         macd = greenyIndicators.macd
 
-        testHistoricRates.priceWithIndicators.push({ price: testCurrentPrice, time: new Date(testCurrentTime * 1000), rsi: rsi[rsi.length-1], macd: macd[macd.length -1], ema50: ema50[ema50.length -1] })
+        const time = new Date(testCurrentTime * 1000)
+        time.setUTCHours(time.getUTCHours() + 1)
+        testHistoricRates.priceWithIndicators.push({ price: testCurrentPrice, time: time, rsi: rsi[rsi.length-1], macd: macd[macd.length -1], ema50: ema50[ema50.length -1] })
         testHistoricRates.priceWithIndicators.shift()
 
         // Strategy
@@ -335,7 +335,7 @@ const main = async () => {
   )
 
   const wallet = {
-    amountAvailable: 100000,
+    amountAvailable: 10000,
   }
 
   await _feedThroughWebSocket({websocket, historicRates, client, sessionTransactions, testMode, wallet})

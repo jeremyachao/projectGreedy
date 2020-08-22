@@ -8,7 +8,7 @@ const greeny = ({client, historicRates, currentHoldings, wallet}) => {
   const values = historicRates.priceWithIndicators
   const results = _analyse(config, values, currentHoldings, wallet)
 
-  return {decision: results.decision, currentPrice: results.currentPrice, profitLoss: results.profitLoss, totalValue: results.totalValue, units: results.units }
+  return {decision: results.decision, currentPrice: results.currentPrice, profitLoss: results.profitLoss, totalValue: results.totalValue, units: results.units, time: results.time }
 }
 
 // @TODO: implement valuation model -> (close - open) x units
@@ -69,7 +69,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
       decision = 'SELL'
     }
 
-    return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: unitsBought*mostRecentPriceData.price}
+    return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: unitsBought*mostRecentPriceData.price, time: mostRecentPriceData.time}
   }
   // BUY LOGIC
   if (mostRecentPriceData.price < emaTarget) {
@@ -118,7 +118,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
   greenyLogs('EMA target: ' + emaTarget)
   greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
 
-  return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A', units: unitsToBuy }
+  return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A', units: unitsToBuy, time: mostRecentPriceData.time}
 }
 
 module.exports = greeny
