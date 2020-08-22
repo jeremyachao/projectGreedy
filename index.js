@@ -12,9 +12,11 @@ const fs = require('fs');
   - not sure if i should calculate indicators on current price or price one minute ago
 */
 
-/*
-  @TODO: create test environment with preset data
-*/
+// LOW PRIORITY
+// @TODO: implement get any active holdings from coinbase
+// @TODO: use actual ask and bid to calculate profits
+// TODO: clean candle of rates loop up, no need time and maybe no need to declare indicators there
+
 
 const _getHistoricRates = async (client) => {
   // [
@@ -34,7 +36,6 @@ const _getHistoricRates = async (client) => {
   //{ start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
 
   let mapCounter = 0
-  // TODO: clean this up, no need time and maybe no need to declare indicators here
   for (const candle of rates) {
     if (mapCounter <= maxPeriods) {
       d = new Date(candle[0] * 1000)
@@ -110,8 +111,7 @@ const _appendIndicatorValuesToList = ({list, rsi, macd, ema50}) => {
   return list
 }
 
-// @TODO: implement get any active holdings from coinbase
-// @TODO: use actual ask and bid to calculate profits
+
 const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionTransactions, testMode, wallet}) => {
   let currentAsk
   let currentBid

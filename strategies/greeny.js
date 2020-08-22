@@ -1,9 +1,15 @@
 const greenyLogs = require('./greenyLogs')
 const config = require('./greenyConfig').greeny
 
-// @TODO: risky trading low value crypto's like XRP because as of now, EMA is not the same as trading view
+// HIGH PRIORITY
+// @TODO: write strategy for buy sell above EMA
+// @TODO: write testing environment for multiple days (and metrics display for this)
+
+// LOW PRIORITY
+// @NOTE: risky trading low value crypto's like XRP because as of now, EMA is not the same as trading view
 // @TODO: handle sell for already existing holdings
 // @TODO: handle trying to /sudden close of bot
+
 const greeny = ({client, historicRates, currentHoldings, wallet}) => {
   const values = historicRates.priceWithIndicators
   const results = _analyse(config, values, currentHoldings, wallet)
@@ -11,7 +17,6 @@ const greeny = ({client, historicRates, currentHoldings, wallet}) => {
   return {decision: results.decision, currentPrice: results.currentPrice, profitLoss: results.profitLoss, totalValue: results.totalValue, units: results.units, time: results.time }
 }
 
-// @TODO: implement valuation model -> (close - open) x units
 const _analyse = (config, priceData, currentHoldings, wallet) => {
   let emaStatus = false
   let rsiStatus = false
