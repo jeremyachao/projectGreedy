@@ -2,15 +2,17 @@ const greenyLogs = require('./greenyLogs')
 const config = require('./greenyConfig').greeny
 
 // @TODO: risky trading low value crypto's like XRP because as of now, EMA is not the same as trading view
-const greeny = ({client, historicRates, currentHoldings}) => {
+// @TODO: handle sell for already existing holdings
+// @TODO: handle trying to /sudden close of bot
+const greeny = ({client, historicRates, currentHoldings, wallet}) => {
   const values = historicRates.priceWithIndicators
-  const results = _analyse(config, values, currentHoldings)
+  const results = _analyse(config, values, currentHoldings, wallet)
 
-  return {decision: results.decision, currentPrice: results.currentPrice, profitLoss: results.profitLoss}
+  return {decision: results.decision, currentPrice: results.currentPrice, profitLoss: results.profitLoss, totalValue: results.totalValue, units: results.units }
 }
 
 // @TODO: implement valuation model -> (close - open) x units
-const _analyse = (config, priceData, currentHoldings) => {
+const _analyse = (config, priceData, currentHoldings, wallet) => {
   let emaStatus = false
   let rsiStatus = false
   let macdStatus = false
@@ -23,17 +25,26 @@ const _analyse = (config, priceData, currentHoldings) => {
   const emaTarget =  mostRecentPriceData.ema50 * ((100 - config.crossedEmaThreshold)/100)
   const stopLossPrice = currentHoldings.price * ((100 - config.stopLossPercentage)/100)
 
+  const availableMoneyForTrade = wallet.amountAvailable * config.percentageToUsePerTrade
+  const unitsToBuy = availableMoneyForTrade / mostRecentPriceData.price
+  const unitsBought = currentHoldings.units
+  const profitLossValue = ((mostRecentPriceData.price - currentHoldings.price)*unitsToBuy)
+  const totalCurrentValue = unitsToBuy*mostRecentPriceData.price
+
 
   // limit to 1 order
   if (currentHoldings !== 0) {
     console.log('CURRENT HOLDINGS > 0')
-    console.log('Current P/L: ' + (mostRecentPriceData.price - currentHoldings.price))
+    console.log('Current P/L: ' + profitLossValue)
     console.log('Current Price: ' + mostRecentPriceData.price)
     greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
     greenyLogs('***LOOKING TO SELL***')
-    greenyLogs('Current P/L: ' + (mostRecentPriceData.price - currentHoldings.price))
+    greenyLogs('Current P/L: ' + profitLossValue)
     greenyLogs('Current Price: ' + mostRecentPriceData.price)
     greenyLogs('SL Price: ' + stopLossPrice)
+    greenyLogs('UNITS BOUGHT: ' + unitsBought)
+    greenyLogs('TOTAL VALUE WHEN BOUGHT: ' + unitsBought*currentHoldings.price)
+    greenyLogs('CURRENT TOTAL VALUE: ' + totalCurrentValue)
     greenyLogs('----------------------------------------------')
     greenyLogs('Time: ' + mostRecentPriceData.time)
     greenyLogs('Price: ' + mostRecentPriceData.price)
@@ -48,17 +59,17 @@ const _analyse = (config, priceData, currentHoldings) => {
       greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
       greenyLogs('@@@@ STOP LOSS TRIGGERED @@@')
       greenyLogs('SL Price: ' + stopLossPrice)
-      greenyLogs('Current P/L: ' + (mostRecentPriceData.price - currentHoldings.price))
+      greenyLogs('Current P/L: ' + profitLossValue)
       greenyLogs('>>>>>>>>>>>>>>>>>>>>> END <<<<<<<<<<<<<<<<<<<<<')
       decision = 'SELL'
     } else if (config.takeProfitCondition(mostRecentPriceData.price, mostRecentPriceData.ema50)) {
       greenyLogs('@@@@@@@@ SOLD @@@@@@@@@')
-      greenyLogs('Current P/L: ' + (mostRecentPriceData.price - currentHoldings.price))
+      greenyLogs('Current P/L: ' + profitLossValue)
       greenyLogs('>>>>>>>>>>>>>>>>>>>>> END <<<<<<<<<<<<<<<<<<<<<')
       decision = 'SELL'
     }
 
-    return {decision, currentPrice: mostRecentPriceData.price, profitLoss: mostRecentPriceData.price - currentHoldings.price}
+    return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: unitsBought*mostRecentPriceData.price}
   }
   // BUY LOGIC
   if (mostRecentPriceData.price < emaTarget) {
@@ -107,7 +118,7 @@ const _analyse = (config, priceData, currentHoldings) => {
   greenyLogs('EMA target: ' + emaTarget)
   greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
 
-  return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A'}
+  return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A', units: unitsToBuy }
 }
 
 module.exports = greeny

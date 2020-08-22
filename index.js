@@ -47,12 +47,12 @@ const _getHistoricRates = async (client) => {
   return historicRates
 }
 
-const _executeBuy = (currentPrice) => {
-  return { time: Date.now(), msg: 'BOUGHT AT: ' + currentPrice, price: currentPrice, action: 'BUY'}
+const _executeBuy = (currentPrice, units, totalValue) => {
+  return { time: Date.now(), msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
 }
 
-const _executeSell = (currentPrice, profitLoss) => {
-  return { time: Date.now(), msg: 'SOLD AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL'}
+const _executeSell = (currentPrice, profitLoss, units, totalValue) => {
+  return { time: Date.now(), msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units}
 }
 
 const _executeHold = (currentPrice) => {
@@ -67,10 +67,10 @@ const _executeStrategy = (data) => {
   // executed every time elapsed interval
   const strategy = strategies.greenyNotGreedy(data)
 
-  const _signalStates = ({currentPrice, decision, profitLoss}) => {
+  const _signalStates = ({currentPrice, decision, profitLoss, units, totalValue}) => {
     const states = {
-      'BUY': _executeBuy(currentPrice),
-      'SELL': _executeSell(currentPrice, profitLoss),
+      'BUY': _executeBuy(currentPrice, units ),
+      'SELL': _executeSell(currentPrice, profitLoss, units, totalValue),
       'HOLD': _executeHold(currentPrice),
       'NONE': _noCurrentTransactions(),
     }
@@ -112,7 +112,7 @@ const _appendIndicatorValuesToList = ({list, rsi, macd, ema50}) => {
 
 // @TODO: implement get any active holdings from coinbase
 // @TODO: use actual ask and bid to calculate profits
-const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionTransactions, testMode}) => {
+const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionTransactions, testMode, wallet}) => {
   let currentAsk
   let currentBid
   let currentPrice = 0
@@ -170,7 +170,7 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
         testHistoricRates.priceWithIndicators.shift()
 
         // Strategy
-        const execution = await _executeStrategy({client, historicRates: testHistoricRates, currentHoldings: testcurrentHoldings})
+        const execution = await _executeStrategy({client, historicRates: testHistoricRates, currentHoldings: testcurrentHoldings, wallet})
         testlastStatus = execution
         if (testlastStatus.action === 'BUY' || testlastStatus.action === 'SELL') {
           sessionTransactions.push(testlastStatus)
@@ -194,13 +194,13 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
         let goodTradesCount = 0
         for (const transaction of sessionTransactions) {
           if (transaction.action === 'BUY') {
-            totalBuy += transaction.price
+            totalBuy += transaction.totalValue
           }
           if (transaction.action === 'SELL') {
             totalTradesCount++
             averagePL += transaction.profitLoss
             sellCount++
-            totalSell += transaction.price
+            totalSell += transaction.totalValue
             if (transaction.profitLoss > 0) {
               goodTradesCount++
             }
@@ -213,6 +213,8 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
         console.log(sessionTransactions)
         console.log('***NET PROFIT/LOSS****')
         console.log('PROFIT/LOSS: ' + profitLoss)
+        console.log('TOTAL BOUGHT: ' + totalBuy)
+        console.log('TOTAL SOLD: ' + totalSell)
         console.log('AVERAGE P/L PER TRADE: ' + averagePL/sellCount)
         console.log('PROFITABLE TRADES %: ' + (goodTradesCount/totalTradesCount * 100))
 
@@ -332,8 +334,11 @@ const main = async () => {
     { channels: ['ticker'] }
   )
 
+  const wallet = {
+    amountAvailable: 100000,
+  }
 
-  await _feedThroughWebSocket({websocket, historicRates, client, sessionTransactions, testMode})
+  await _feedThroughWebSocket({websocket, historicRates, client, sessionTransactions, testMode, wallet})
 
   // Shutdown process
   if (process.platform === "win32") {
