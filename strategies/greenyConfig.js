@@ -13,3 +13,15 @@ exports.greeny = {
   takeProfitCondition: (currentPrice, threshold) => { return currentPrice >= threshold },
   stopLossPercentage: 0.03,
 }
+
+// example low risk score settings
+
+/*
+crossedEmaThreshold: 0.05,
+rsiThreshold: 35,
+minimumMACDLevel: 0,
+macdPriceLookupPeriod: 3,
+divergenceDistance: (macdPriceLookupPeriod) => { return Math.floor(macdPriceLookupPeriod / 2) },
+takeProfitCondition: (currentPrice, threshold) => { return currentPrice >= threshold },
+stopLossPercentage: 0.03,
+*.

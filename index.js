@@ -28,7 +28,7 @@ const _getHistoricRates = async (client) => {
   // only updates every 5 mins
   const rates = await client.getProductHistoricRates(
     config.INSTRUMENT,
-    { start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
+    { granularity: 60 }
   )
 
   //{ start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
@@ -190,14 +190,20 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
         let totalSell = 0
         let averagePL = 0
         let sellCount = 0
+        let totalTradesCount = 0
+        let goodTradesCount = 0
         for (const transaction of sessionTransactions) {
           if (transaction.action === 'BUY') {
             totalBuy += transaction.price
           }
           if (transaction.action === 'SELL') {
+            totalTradesCount++
             averagePL += transaction.profitLoss
             sellCount++
             totalSell += transaction.price
+            if (transaction.profitLoss > 0) {
+              goodTradesCount++
+            }
           }
         }
         let profitLoss = totalSell - totalBuy
@@ -208,6 +214,7 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
         console.log('***NET PROFIT/LOSS****')
         console.log('PROFIT/LOSS: ' + profitLoss)
         console.log('AVERAGE P/L PER TRADE: ' + averagePL/sellCount)
+        console.log('PROFITABLE TRADES %: ' + (goodTradesCount/totalTradesCount * 100))
 
         clearInterval(interval)
       }
