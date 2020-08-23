@@ -1,8 +1,6 @@
 const CoinbasePro = require('coinbase-pro')
 const config = require('./config')
 const strategies = require('./strategies')
-const indicators = require('technicalindicators')
-const plotly = require('plotly')(config.PLOTLY_USERNAME, config.PLOTLY_API_KEY)
 const fs = require('fs');
 
 /*
@@ -18,19 +16,20 @@ const fs = require('fs');
 // TODO: clean candle of rates loop up, no need time and maybe no need to declare indicators there
 
 
-const _getHistoricRates = async (client) => {
+const _getHistoricRates = async (client, strategyPreprocessing) => {
   // [
   //  0: oldest,
   //  length-1: newest
   //]
   let historicRates = { price: [], time: [], priceWithIndicators: []}
+  // max 300
   let maxPeriods = 250
 
   //  [ time, low, high, open, close, volume ],
   // only updates every 5 mins
   const rates = await client.getProductHistoricRates(
     config.INSTRUMENT,
-    { start: '2020-08-22T12:00:00+0100', end:'2020-08-22T16:00:00+0100', granularity: 60 }
+    { start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
   )
 
   //{ start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
@@ -38,22 +37,67 @@ const _getHistoricRates = async (client) => {
   let mapCounter = 0
   for (const candle of rates) {
     if (mapCounter <= maxPeriods) {
-      d = new Date(candle[0] * 1000)
       historicRates.price.unshift(candle[4])
-      historicRates.time.unshift(d)
       historicRates.priceWithIndicators.unshift({ price: candle[4], time: candle[0]})
       mapCounter++
     }
   }
+
+  // if present, one time data setup
+  if (strategyPreprocessing) {
+    data = strategyPreprocessing(historicRates)
+    return data
+  }
+
   return historicRates
 }
 
+const _displayEndMessage = (sessionTransactions) => {
+  let totalBuy = 0
+  let totalSell = 0
+  let averagePL = 0
+  let sellCount = 0
+  let totalTradesCount = 0
+  let goodTradesCount = 0
+  let hitSLCount = 0
+  for (const transaction of sessionTransactions) {
+    if (transaction.action === 'BUY') {
+      totalBuy += transaction.totalValue
+    }
+    if (transaction.action === 'SELL') {
+      totalTradesCount++
+      averagePL += transaction.profitLoss
+      sellCount++
+      totalSell += transaction.totalValue
+      if (transaction.profitLoss > 0) {
+        goodTradesCount++
+      }
+      if (transaction.hitSL) {
+        hitSLCount++
+      }
+    }
+  }
+  let profitLoss = totalSell - totalBuy
+  console.log('-------FINISHED FEED-----')
+  console.log('----------------------------------------------')
+  console.log('***TRANSACTIONS****')
+  console.log(config.INSTRUMENT)
+  console.log(sessionTransactions)
+  console.log('***NET PROFIT/LOSS****')
+  console.log('PROFIT/LOSS: ' + profitLoss)
+  console.log('TOTAL BOUGHT: ' + totalBuy)
+  console.log('TOTAL SOLD: ' + totalSell)
+  console.log('AVERAGE P/L PER TRADE: ' + averagePL/sellCount)
+  console.log('HIT SL %: ' + (hitSLCount/totalTradesCount*100))
+  console.log('PROFITABLE TRADES %: ' + (goodTradesCount/totalTradesCount * 100))
+}
+
 const _executeBuy = (currentPrice, units, time) => {
-  return { time: time, msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
+  return { time: new Date(time*1000), msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
 }
 
 const _executeSell = (currentPrice, profitLoss, units, totalValue, time, hitSL) => {
-  return { time: time, msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units, hitSL: hitSL}
+  return { time: new Date(time*1000), msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units, hitSL: hitSL}
 }
 
 const _executeHold = (currentPrice) => {
@@ -64,11 +108,14 @@ const _noCurrentTransactions = () => {
   return 'No current transactions'
 }
 
-const _executeStrategy = (data) => {
-  // executed every time elapsed interval
-  const strategy = strategies.greenyNotGreedy(data)
+/*
+  This is executed every interval
+*/
+const _implementStrategy = ({ historicRates, currentHoldings, strategy, tickerData, sessionTransactions, wallet}) => {
+  // executes strategy
+  const strategyExecutionResult = strategy({historicRates, currentHoldings, wallet, tickerData})
 
-  const _signalStates = ({currentPrice, decision, profitLoss, units, totalValue, time, hitSL}) => {
+  const _getLastStatus = ({currentPrice, decision, profitLoss, units, totalValue, time, hitSL}) => {
     const states = {
       'BUY': _executeBuy(currentPrice, units, time),
       'SELL': _executeSell(currentPrice, profitLoss, units, totalValue, time, hitSL),
@@ -78,162 +125,69 @@ const _executeStrategy = (data) => {
     return states[decision]
   }
 
-  return _signalStates(strategy)
-}
-
-const _calculateIndicators = (values) => {
-  ema50 = indicators.EMA.calculate({ period: 50, values})
-  rsi = indicators.RSI.calculate({values, period: 14})
-  macd = indicators.MACD.calculate({values, fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, SimpleMAOscillator: false, SimpleMASignal: false})
-  return { ema50, rsi, macd }
-}
-
-const _appendIndicatorValuesToList = ({list, rsi, macd, ema50}) => {
-  const values = list
-  // ema50
-  let emaCounter = 0
-  for (let i = 50; i < values.length; i++) {
-    values[i].ema50 = ema50[emaCounter]
-    emaCounter++
+  const lastStatus = _getLastStatus(strategyExecutionResult)
+  // Keeps track of open positions
+  if (lastStatus.action === 'BUY' || lastStatus.action === 'SELL') {
+    sessionTransactions.push(lastStatus)
+    if (lastStatus.action === 'BUY') {
+      currentHoldings = lastStatus
+    }
+    if (lastStatus.action === 'SELL') {
+      currentHoldings = 0
+    }
   }
-  // rsi 14
-  let rsiCounter = 0
-  for (let i = 14; i < values.length; i++){
-    values[i].rsi = rsi[rsiCounter]
-    rsiCounter++
-  }
-  // macd 12 26 9
-  let macdCounter = 0
-  for (let i = 26; i < values.length; i++){
-    values[i].macd = macd[macdCounter]
-    macdCounter++
-  }
-  return list
+  return currentHoldings
 }
 
 
-const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionTransactions, testMode, wallet}) => {
+
+const _feedThroughTestEnvironment = ({historicRates, sessionTransactions, wallet, strategy}) => {
+  const testFeedSpeed = 10
+  const testHistoricPriceIndicator= historicRates.priceWithIndicators.slice(0, 60)
+  const testHistoricPrice = historicRates.price.slice(0,60)
+  const testFeed = historicRates.priceWithIndicators.slice(60, historicRates.length)
+
+  const testHistoricRates = { price: testHistoricPrice, priceWithIndicators: testHistoricPriceIndicator}
+
+  let testCurrentPrice = 0
+  let testCounter = 0
+  let testcurrentHoldings = 0
+  let testlastStatus = 'NONE'
+
+  let interval = setInterval(()=>{
+    if (testCounter < testFeed.length) {
+      // NOTE: real version uses counter to countdown and THEN execute strategy
+      testCurrentPrice = testFeed[testCounter].price
+      testCurrentTime = testFeed[testCounter].time
+      testCounter++
+      let tickerData = {
+        currentPrice: testCurrentPrice,
+        time: testCurrentTime
+      }
+      // NOTE: this is different size from real historicRates 60 in test mode 250 in real
+      testcurrentHoldings = _implementStrategy({ sessionTransactions, currentHoldings: testcurrentHoldings, historicRates: testHistoricRates, strategy, time: new Date(testCurrentTime * 1000), tickerData, wallet })
+    } else {
+      _displayEndMessage(sessionTransactions)
+      clearInterval(interval)
+    }
+  }, testFeedSpeed)
+}
+
+
+const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransactions, wallet, strategy}) => {
   let currentAsk
   let currentBid
   let currentPrice = 0
-  let previousPrice = currentPrice
-  let minute = 3
+  let minute = 60
   let lastStatus = 'None'
-  let values = historicRates.price
   let currentHoldings = 0
-
-  let greenyIndicators = _calculateIndicators(values)
-  let ema50 = greenyIndicators.ema50
-  let rsi = greenyIndicators.rsi
-  let macd = greenyIndicators.macd
-
-  let macdTrend = parseFloat(macd[macd.length -1].MACD) > parseFloat(macd[macd.length -1].signal) ? 'Uptrend' : 'Downtrend'
-
-  const appendedRates = _appendIndicatorValuesToList({ list: historicRates.priceWithIndicators, ema50, rsi, macd})
-  historicRates.priceWithIndicators = appendedRates
 
   let counter = minute
 
-  if (testMode) {
-    console.log('------testMode-----')
-    const testFeedSpeed = 10
-    let testHistoricPriceIndicator= historicRates.priceWithIndicators.slice(0, 60)
-    let testHistoricPrice = historicRates.price.slice(0,60)
-    let testHistoricRates = { price: testHistoricPrice, priceWithIndicators: testHistoricPriceIndicator}
-    let testFeed = historicRates.priceWithIndicators.slice(60, historicRates.length)
-    let testCurrentPrice = 0
-    let testCounter = 0
-    let testcurrentHoldings = 0
-    let testlastStatus = 'NONE'
-
-    let cEpochTime = testHistoricPriceIndicator[0].time
-    let interval = setInterval(async ()=>{
-      if (testCounter < testFeed.length) {
-        // NOTE: real version uses counter to countdown and THEN execute strategy
-        testCurrentPrice = testFeed[testCounter].price
-        testCurrentTime = testFeed[testCounter].time
-        testCounter++
-        // test logic ------------------------------------------------------------
-        // NOTE: this is different size from real historicRates 60 in test mode 250 in real
-        testHistoricRates.price.push(testCurrentPrice)
-        testHistoricRates.price.shift()
-
-        // indicators
-        greenyIndicators = _calculateIndicators(testHistoricRates.price)
-        ema50 = greenyIndicators.ema50
-        rsi = greenyIndicators.rsi
-        macd = greenyIndicators.macd
-
-        const time = new Date(testCurrentTime * 1000)
-        time.setUTCHours(time.getUTCHours() + 1)
-        testHistoricRates.priceWithIndicators.push({ price: testCurrentPrice, time: time, rsi: rsi[rsi.length-1], macd: macd[macd.length -1], ema50: ema50[ema50.length -1] })
-        testHistoricRates.priceWithIndicators.shift()
-
-        // Strategy
-        const execution = await _executeStrategy({client, historicRates: testHistoricRates, currentHoldings: testcurrentHoldings, wallet})
-        testlastStatus = execution
-        if (testlastStatus.action === 'BUY' || testlastStatus.action === 'SELL') {
-          sessionTransactions.push(testlastStatus)
-          if (testlastStatus.action === 'BUY') {
-            testcurrentHoldings = testlastStatus
-          }
-          if (testlastStatus.action === 'SELL') {
-            testcurrentHoldings = 0
-          }
-        }
-        console.log(execution)
-        //test logic end ------------------------------------------------------------
-
-      } else {
-
-        let totalBuy = 0
-        let totalSell = 0
-        let averagePL = 0
-        let sellCount = 0
-        let totalTradesCount = 0
-        let goodTradesCount = 0
-        let hitSLCount = 0
-        for (const transaction of sessionTransactions) {
-          if (transaction.action === 'BUY') {
-            totalBuy += transaction.totalValue
-          }
-          if (transaction.action === 'SELL') {
-            totalTradesCount++
-            averagePL += transaction.profitLoss
-            sellCount++
-            totalSell += transaction.totalValue
-            if (transaction.profitLoss > 0) {
-              goodTradesCount++
-            }
-            if (transaction.hitSL) {
-              hitSLCount++
-            }
-          }
-        }
-        let profitLoss = totalSell - totalBuy
-        console.log('-------FINISHED FEED-----')
-        console.log('----------------------------------------------')
-        console.log('***TRANSACTIONS****')
-        console.log(config.INSTRUMENT)
-        console.log(sessionTransactions)
-        console.log('***NET PROFIT/LOSS****')
-        console.log('PROFIT/LOSS: ' + profitLoss)
-        console.log('TOTAL BOUGHT: ' + totalBuy)
-        console.log('TOTAL SOLD: ' + totalSell)
-        console.log('AVERAGE P/L PER TRADE: ' + averagePL/sellCount)
-        console.log('HIT SL %: ' + (hitSLCount/totalTradesCount*100))
-        console.log('PROFITABLE TRADES %: ' + (goodTradesCount/totalTradesCount * 100))
-
-        clearInterval(interval)
-      }
-    }, testFeedSpeed)
-
-  } else {
-    websocket.on('message', async (data) => {
-    /* work with data */
+  websocket.on('message', (data) => {
+  /* work with data */
     if (data.type === 'heartbeat') {
-      let aboveEma = currentPrice > ema50[ema50.length - 1]
-      counter--
+      // let aboveEma = currentPrice > ema50[ema50.length - 1]
       // Every second
       // console.log('^^^')
       // console.log('time: ' + Date.now())
@@ -247,51 +201,25 @@ const _feedThroughWebSocket = async ({websocket, historicRates, client, sessionT
       // console.log('above ema: ' + aboveEma)
       // console.log('Last status: ' + lastStatus)
       // console.log('vvv')
+      counter--
     }
     if (data.type ==='ticker'){
       // Real time
       currentAsk = parseFloat(data.best_ask)
       currentBid = parseFloat(data.best_bid)
-      previousPrice = currentPrice
       currentPrice = parseFloat(data.price)
     }
     if (counter === 0) {
       counter = minute
-      historicRates.price.push(currentPrice)
-      historicRates.price.shift()
-
-      // indicators
-      greenyIndicators = _calculateIndicators(values)
-      ema50 = greenyIndicators.ema50
-      rsi = greenyIndicators.rsi
-      macd = greenyIndicators.macd
-      macdTrend = parseFloat(macd[macd.length -1].MACD) > parseFloat(macd[macd.length -1].signal) ? 'Uptrend' : 'Downtrend'
-
-      historicRates.priceWithIndicators.push({ price: currentPrice, time: Date.now(), rsi: rsi[rsi.length-1], macd: macd[macd.length -1], ema50: ema50[ema50.length -1] })
-      historicRates.priceWithIndicators.shift()
-
-      // Strategy
-      const execution = _executeStrategy({client, historicRates, currentHoldings})
-      lastStatus = execution
-      if (lastStatus.action === 'BUY' || lastStatus.action === 'SELL') {
-        sessionTransactions.push(lastStatus)
-        if (lastStatus.action === 'BUY') {
-          currentHoldings = lastStatus
-        }
-        if (lastStatus.action === 'SELL') {
-          currentHoldings = false
-        }
-      }
-      console.log(execution)
+      _implementStrategy({ historicReates, time: new Date(), strategy})
     }
-    })
-    websocket.on('error', err => {
-      /* handle error */
-    })
-    websocket.on('close', () => {
-      /* ... */
-    })
-  }
+  })
+  websocket.on('error', err => {
+    /* handle error */
+  })
+  websocket.on('close', () => {
+    /* ... */
+  })
 
 }
 
@@ -323,11 +251,9 @@ const main = async () => {
   )
   console.log('****************************************')
 
-  let historicRates = await _getHistoricRates(client)
+  let historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing)
 
   let sessionTransactions = []
-
-  let testMode = true
 
   const websocket = new CoinbasePro.WebsocketClient(
     [config.INSTRUMENT],
@@ -343,8 +269,8 @@ const main = async () => {
   const wallet = {
     amountAvailable: 10000,
   }
-
-  await _feedThroughWebSocket({websocket, historicRates, client, sessionTransactions, testMode, wallet})
+  _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  // _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
 
   // Shutdown process
   if (process.platform === "win32") {
@@ -359,23 +285,6 @@ const main = async () => {
   }
 
   process.on("SIGINT", function () {
-    //graceful shutdown
-    // let totalBuy = 0
-    // let totalSell = 0
-    // for (const transaction of sessionTransactions) {
-    //   if (transaction.action === 'BUY') {
-    //     totalBuy += transaction.price
-    //   }
-    //   if (transaction.action === 'SELL') {
-    //     totalSell += transaction.price
-    //   }
-    // }
-    // let profitLoss = totalSell - totalBuy
-    // console.log('----------------------------------------------')
-    // console.log('***TRANSACTIONS****')
-    // console.log(sessionTransactions)
-    // console.log('***NET PROFIT/LOSS****')
-    // console.log('PROFIT/LOSS: ' + profitLoss)
     fs.unlinkSync('./greenyLogFile')
     process.exit();
   });

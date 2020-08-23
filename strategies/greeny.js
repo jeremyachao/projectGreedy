@@ -1,21 +1,81 @@
 const greenyLogs = require('./greenyLogs')
 const config = require('./greenyConfig').greeny
+const indicators = require('technicalindicators')
 
 // HIGH PRIORITY
 // @TODO: write strategy for buy sell above EMA
-// @TODO: write testing environment for multiple days (and metrics display for this)
 
 // LOW PRIORITY
 // @NOTE: risky trading low value crypto's like XRP because as of now, EMA is not the same as trading view
 // @TODO: handle sell for already existing holdings
 // @TODO: handle trying to /sudden close of bot
 // @TODO: gradient calculation to determine better thresholds for TP/SL?
+// @TODO: write testing environment for multiple days (and metrics display for this)
 
-const greeny = ({client, historicRates, currentHoldings, wallet}) => {
-  const values = historicRates.priceWithIndicators
-  const results = _analyse(config, values, currentHoldings, wallet)
+
+/*
+  Called in _getHistoricRates in index.js
+*/
+exports.greenyPreprocessing = (data) => {
+  const greenyReadyData = data
+  const greenyIndicators = _calculateIndicators(greenyReadyData.price)
+  const appendedRates = _appendIndicatorValuesToList({ list: data.priceWithIndicators, ema50: greenyIndicators.ema50, rsi: greenyIndicators.rsi, macd: greenyIndicators.macd})
+  greenyReadyData.priceWithIndicators = appendedRates
+  return data
+}
+
+exports.greenyNotgreedy = ({historicRates, currentHoldings, wallet, tickerData}) => {
+  // technical indicators libraries is easiest used with pure lists
+  historicRates.price.push(tickerData.currentPrice)
+  historicRates.price.shift()
+
+  const greenyIndicators = _calculateIndicators(historicRates.price)
+
+  const priceObject = {
+    price: tickerData.currentPrice,
+    time: tickerData.time,
+    rsi: greenyIndicators.rsi[rsi.length-1],
+    macd: greenyIndicators.macd[macd.length -1],
+    ema50: greenyIndicators.ema50[ema50.length -1]
+  }
+
+  historicRates.priceWithIndicators.push(priceObject)
+  historicRates.priceWithIndicators.shift()
+
+
+  const results = _analyse(config, historicRates.priceWithIndicators, currentHoldings, wallet)
 
   return {decision: results.decision, currentPrice: results.currentPrice, profitLoss: results.profitLoss, totalValue: results.totalValue, units: results.units, time: results.time, hitSL: results.hitSL }
+}
+
+const _calculateIndicators = (values) => {
+  ema50 = indicators.EMA.calculate({ period: 50, values})
+  rsi = indicators.RSI.calculate({values, period: 14})
+  macd = indicators.MACD.calculate({values, fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, SimpleMAOscillator: false, SimpleMASignal: false})
+  return { ema50, rsi, macd }
+}
+
+const _appendIndicatorValuesToList = ({list, rsi, macd, ema50}) => {
+  const values = list
+  // ema50
+  let emaCounter = 0
+  for (let i = 50; i < values.length; i++) {
+    values[i].ema50 = ema50[emaCounter]
+    emaCounter++
+  }
+  // rsi 14
+  let rsiCounter = 0
+  for (let i = 14; i < values.length; i++){
+    values[i].rsi = rsi[rsiCounter]
+    rsiCounter++
+  }
+  // macd 12 26 9
+  let macdCounter = 0
+  for (let i = 26; i < values.length; i++){
+    values[i].macd = macd[macdCounter]
+    macdCounter++
+  }
+  return list
 }
 
 const _analyse = (config, priceData, currentHoldings, wallet) => {
@@ -126,5 +186,3 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
 
   return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A', units: unitsToBuy, time: mostRecentPriceData.time}
 }
-
-module.exports = greeny
