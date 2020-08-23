@@ -14,6 +14,7 @@ exports.greeny = {
   // 1 = 100% of money to use per trade
   percentageToUsePerTrade: 1,
   takeProfitCondition: (currentPrice, ema50, ema20, alreadyCrossedEma50) => {
+    // return currentPrice >= ema50 ? { signal: true } : { signal: false }
     if (alreadyCrossedEma50) {
       // Crossed EMA 50
       if (ema20 >= ema50) {

@@ -93,7 +93,11 @@ const _displayEndMessage = (sessionTransactions) => {
   let totalTradesCount = 0
   let goodTradesCount = 0
   let hitSLCount = 0
+  const fileName = './greeny-RESULTS'
+
   for (const transaction of sessionTransactions) {
+    fs.appendFileSync(fileName, JSON.stringify(transaction) + '\r\n')
+
     if (transaction.action === 'BUY') {
       totalBuy += transaction.totalValue
     }
@@ -114,9 +118,9 @@ const _displayEndMessage = (sessionTransactions) => {
   console.log('-------FINISHED FEED-----')
   console.log('----------------------------------------------')
   console.log('***TRANSACTIONS****')
-  console.log(config.INSTRUMENT)
   console.log(sessionTransactions)
   console.log('***NET PROFIT/LOSS****')
+  console.log(config.INSTRUMENT)
   console.log('PROFIT/LOSS: ' + profitLoss)
   console.log('TOTAL BOUGHT: ' + totalBuy)
   console.log('TOTAL SOLD: ' + totalSell)
@@ -124,6 +128,7 @@ const _displayEndMessage = (sessionTransactions) => {
   console.log('AVERAGE P/L PER TRADE: ' + averagePL/sellCount)
   console.log('HIT SL %: ' + (hitSLCount/totalTradesCount*100))
   console.log('PROFITABLE TRADES %: ' + (goodTradesCount/totalTradesCount * 100))
+  console.log('SAVED TO: ' + fileName)
 }
 
 const _executeBuy = (currentPrice, units, time) => {
@@ -311,14 +316,16 @@ const main = async () => {
     amountAvailable: 10000,
   }
   const sessionTransactions = []
-  let startDate = 22
+
+  // --------------------------
+  let startDate = 21
   const testingPeriod = [
     { start: `2020-08-${startDate}T00:00:00+0000` , end: `2020-08-${startDate}T04:00:00+0000`},
     { start: `2020-08-${startDate}T04:00:00+0000` , end: `2020-08-${startDate}T08:00:00+0000`},
     { start: `2020-08-${startDate}T08:00:00+0000` , end: `2020-08-${startDate}T12:00:00+0000`},
     { start: `2020-08-${startDate}T12:00:00+0000` , end: `2020-08-${startDate}T16:00:00+0000`},
     { start: `2020-08-${startDate}T16:00:00+0000` , end: `2020-08-${startDate}T20:00:00+0000`},
-    { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:00:00+0000`},
+    { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:30:00+0000`},
   ]
   let counter = 0
   let historicRates = { price: [], priceWithIndicators: []}
@@ -337,6 +344,7 @@ const main = async () => {
     }
   }, 1500)
 
+  // --------------------------
 
 
 
@@ -363,6 +371,7 @@ const main = async () => {
   process.on("SIGINT", function () {
     _displayEndMessage(sessionTransactions)
     fs.unlinkSync('./greenyLogFile')
+    fs.unlinkSync('./greeny-RESULTS')
     process.exit();
   });
 
