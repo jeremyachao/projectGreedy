@@ -29,9 +29,9 @@ const _getHistoricRates = async (client, strategyPreprocessing) => {
   // only updates every 5 mins
   const rates = await client.getProductHistoricRates(
     config.INSTRUMENT,
-    { start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
+    { granularity: 60 }
   )
-
+  // { start: '2020-08-21T09:30:00+0100', end:'2020-08-21T12:30:00+0100' , granularity: 60 }
   //{ start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
 
   let mapCounter = 0
@@ -93,11 +93,11 @@ const _displayEndMessage = (sessionTransactions) => {
 }
 
 const _executeBuy = (currentPrice, units, time) => {
-  return { time: new Date(time*1000), msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
+  return { time: new Date(time), msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
 }
 
 const _executeSell = (currentPrice, profitLoss, units, totalValue, time, hitSL) => {
-  return { time: new Date(time*1000), msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units, hitSL: hitSL}
+  return { time: new Date(time), msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units, hitSL: hitSL}
 }
 
 const _executeHold = (currentPrice) => {
@@ -279,8 +279,8 @@ const main = async () => {
   const wallet = {
     amountAvailable: 10000,
   }
-  // _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
-  _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  // _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
 
   // Shutdown process
   if (process.platform === "win32") {
@@ -295,6 +295,7 @@ const main = async () => {
   }
 
   process.on("SIGINT", function () {
+    _displayEndMessage(sessionTransactions)
     fs.unlinkSync('./greenyLogFile')
     process.exit();
   });
