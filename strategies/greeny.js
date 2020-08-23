@@ -87,6 +87,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
   let decision = 'NONE'
 
   const mostRecentPriceData = priceData[priceData.length - 1]
+  const mostRecentTime = new Date(mostRecentPriceData.time)
   const macdSlice = priceData.slice(priceData.length - config.macdPriceLookupPeriod, priceData.length)
   const emaTarget =  mostRecentPriceData.ema50 * ((100 - config.crossedEmaThreshold)/100)
   const stopLossPrice = currentHoldings.price * ((100 - config.stopLossPercentage)/100)
@@ -100,9 +101,13 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
 
   // limit to 1 order
   if (currentHoldings !== 0) {
-    console.log('CURRENT HOLDINGS > 0')
+
+    console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+    console.log('CURRENTLY HOLDING AN ASSET')
     console.log('Current P/L: ' + profitLossValue)
     console.log('Current Price: ' + mostRecentPriceData.price)
+    console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+
     greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
     greenyLogs('***LOOKING TO SELL***')
     greenyLogs('Current P/L: ' + profitLossValue)
@@ -112,7 +117,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
     greenyLogs('TOTAL VALUE WHEN BOUGHT: ' + unitsBought*currentHoldings.price)
     greenyLogs('CURRENT TOTAL VALUE: ' + totalCurrentValue)
     greenyLogs('----------------------------------------------')
-    greenyLogs('Time: ' + mostRecentPriceData.time)
+    greenyLogs('Time: ' + mostRecentTime)
     greenyLogs('Price: ' + mostRecentPriceData.price)
     greenyLogs('EMA: ' + mostRecentPriceData.ema50)
     greenyLogs('RSI: ' + mostRecentPriceData.rsi)
@@ -135,7 +140,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
       decision = 'SELL'
     }
 
-    return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: unitsBought*mostRecentPriceData.price, time: mostRecentPriceData.time, hitSL: mostRecentPriceData.price <= stopLossPrice}
+    return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: unitsBought*mostRecentPriceData.price, time: mostRecentTime, hitSL: mostRecentPriceData.price <= stopLossPrice}
   }
   // BUY LOGIC
   if (mostRecentPriceData.price < emaTarget) {
@@ -169,8 +174,23 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
     }
   }
 
+  console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+  console.log('NO HOLDINGS')
+  console.log('************')
+  console.log('Stage1: ' + 'Price under ema by atleast ' + config.crossedEmaThreshold + '%: ' + emaStatus)
+  console.log('Stage2: ' + 'Price RSI < ' + config.rsiThreshold + ': ' + rsiStatus)
+  console.log('Stage3: ' + 'MACD less than ' + config.minimumMACDLevel + ': '+ macdZeroStatus)
+  console.log('Stage4: ' + 'MACD closing: ' + macdStatus)
+  console.log('************')
+  console.log('Time: ' + mostRecentTime)
+  console.log('Price: ' + mostRecentPriceData.price)
+  console.log('EMA: ' + mostRecentPriceData.ema50)
+  console.log('RSI: ' + mostRecentPriceData.rsi)
+  console.log('MACD histo: ' + mostRecentPriceData.macd.histogram)
+  console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+
   greenyLogs('----------------------------------------------')
-  greenyLogs('Time: ' + mostRecentPriceData.time)
+  greenyLogs('Time: ' + mostRecentTime)
   greenyLogs('Price: ' + mostRecentPriceData.price)
   greenyLogs('EMA: ' + mostRecentPriceData.ema50)
   greenyLogs('RSI: ' + mostRecentPriceData.rsi)
@@ -184,5 +204,5 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
   greenyLogs('EMA target: ' + emaTarget)
   greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
 
-  return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A', units: unitsToBuy, time: mostRecentPriceData.time}
+  return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A', units: unitsToBuy, time: mostRecentTime}
 }

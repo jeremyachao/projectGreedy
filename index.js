@@ -178,40 +178,50 @@ const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransacti
   let currentAsk
   let currentBid
   let currentPrice = 0
-  let minute = 60
-  let lastStatus = 'None'
+  let minute = 5
   let currentHoldings = 0
+
+  let tickerData = {
+    currentPrice,
+    time: 0,
+  }
 
   let counter = minute
 
   websocket.on('message', (data) => {
   /* work with data */
+
     if (data.type === 'heartbeat') {
-      // let aboveEma = currentPrice > ema50[ema50.length - 1]
+      let aboveEma = currentPrice > ema50[ema50.length - 1]
       // Every second
-      // console.log('^^^')
-      // console.log('time: ' + Date.now())
-      // console.log('50: ' + ema50[ema50.length - 1])
+      // console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+      // console.log('price: ' + currentPrice)
+      // console.log('time: ' + new Date())
+      // console.log('----------')
+      // console.log('ema: ' + ema50[ema50.length - 1])
+      // console.log('above ema: ' + aboveEma)
+      // console.log('----------')
       // console.log('RSI: ' + rsi[rsi.length -1])
+      // console.log('----------')
       // console.log('MACD: ' + macd[macd.length -1].MACD)
       // console.log('Signal: ' + macd[macd.length -1].signal)
-      // console.log('Trend: ' + macdTrend)
-      // console.log('price: ' + currentPrice)
+      // console.log('Histo: ' + macd[macd.length -1].histogram)
+      // console.log('----------')
       // console.log('counter: ' + counter)
-      // console.log('above ema: ' + aboveEma)
-      // console.log('Last status: ' + lastStatus)
-      // console.log('vvv')
+      // console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+      console.log('.')
       counter--
     }
     if (data.type ==='ticker'){
       // Real time
       currentAsk = parseFloat(data.best_ask)
       currentBid = parseFloat(data.best_bid)
-      currentPrice = parseFloat(data.price)
+      tickerData.currentPrice = parseFloat(data.price)
+      tickerData.time = Date.now()
     }
     if (counter === 0) {
       counter = minute
-      _implementStrategy({ historicReates, time: new Date(), strategy})
+      _implementStrategy({ sessionTransactions, currentHoldings: currentHoldings, historicRates: historicRates, strategy, tickerData, wallet })
     }
   })
   websocket.on('error', err => {
@@ -269,8 +279,8 @@ const main = async () => {
   const wallet = {
     amountAvailable: 10000,
   }
-  _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
-  // _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  // _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
 
   // Shutdown process
   if (process.platform === "win32") {
