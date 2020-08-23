@@ -2,7 +2,7 @@ exports.greeny = {
   // stage 1 'Price under ema by atleast <crossedEmaThreshold>%'
   crossedEmaThreshold: 0.05,
   // stage 2 'Price RSI < <rsiThreshold>'
-  rsiThreshold: 40,
+  rsiThreshold: 50,
   // stage 3 'MACD less than <minimumMACDLevel>'
   minimumMACDLevel: 0,
   // stage 4 'MACD closing' - takes <macdPriceLookupPeriod> period(s) and then uses <divergenceDistance> to

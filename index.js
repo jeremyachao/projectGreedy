@@ -16,31 +16,64 @@ const fs = require('fs');
 // TODO: clean candle of rates loop up, no need time and maybe no need to declare indicators there
 
 
-const _getHistoricRates = async (client, strategyPreprocessing) => {
+const _getHistoricRates = async (client, strategyPreprocessing, startEnd, periodTesting=false) => {
+
+
+  // max 300
+  let options
+  //  [ time, low, high, open, close, volume ],
+  // only updates every 5 mins
+  if (startEnd) {
+    options = { start: startEnd.start, end: startEnd.end, granularity: 60 }
+  } else {
+    options = { granularity: 60 }
+  }
+
+  if (periodTesting) {
+    const rates = await client.getProductHistoricRates(
+      config.INSTRUMENT,
+      options
+    )
+    const tempPrice = []
+    const tempPriceWithIndicators = []
+    for (const candle of rates) {
+      tempPrice.unshift(candle[4])
+      tempPriceWithIndicators.unshift({ price: candle[4], time: candle[0]})
+    }
+    const mergedPrice = periodTesting.price.concat(tempPrice)
+    const mergedPriceWithIndicators = periodTesting.priceWithIndicators.concat(tempPriceWithIndicators)
+    periodTesting.price = mergedPrice
+    periodTesting.priceWithIndicators = mergedPriceWithIndicators
+
+    console.log(periodTesting.priceWithIndicators[0])
+    console.log('@@ COMPLETED @@')
+    console.log(periodTesting.priceWithIndicators[periodTesting.priceWithIndicators.length -1])
+
+    if (periodTesting.priceWithIndicators.length > 1400) {
+      console.log('@@@ STARTING GREENY PREPROCESSING @@@')
+      console.log(periodTesting.priceWithIndicators.length)
+      data = strategyPreprocessing(periodTesting)
+      console.log(data.priceWithIndicators[0])
+      console.log(data.priceWithIndicators[data.priceWithIndicators.length - 1])
+      return data
+    }
+    return periodTesting
+  }
+
   // [
   //  0: oldest,
   //  length-1: newest
   //]
-  let historicRates = { price: [], time: [], priceWithIndicators: []}
-  // max 300
-  let maxPeriods = 250
+  let historicRates = { price: [], priceWithIndicators: []}
 
-  //  [ time, low, high, open, close, volume ],
-  // only updates every 5 mins
   const rates = await client.getProductHistoricRates(
     config.INSTRUMENT,
-    { granularity: 60 }
+    options
   )
-  // { start: '2020-08-21T09:30:00+0100', end:'2020-08-21T12:30:00+0100' , granularity: 60 }
-  //{ start: '2020-08-21T21:00:00+0100', end:'2020-08-22T01:00:00+0100' , granularity: 60 }
 
-  let mapCounter = 0
   for (const candle of rates) {
-    if (mapCounter <= maxPeriods) {
-      historicRates.price.unshift(candle[4])
-      historicRates.priceWithIndicators.unshift({ price: candle[4], time: candle[0]})
-      mapCounter++
-    }
+    historicRates.price.unshift(candle[4])
+    historicRates.priceWithIndicators.unshift({ price: candle[4], time: candle[0]})
   }
 
   // if present, one time data setup
@@ -87,6 +120,7 @@ const _displayEndMessage = (sessionTransactions) => {
   console.log('PROFIT/LOSS: ' + profitLoss)
   console.log('TOTAL BOUGHT: ' + totalBuy)
   console.log('TOTAL SOLD: ' + totalSell)
+  console.log('TOTAL TRADES: ' + totalTradesCount)
   console.log('AVERAGE P/L PER TRADE: ' + averagePL/sellCount)
   console.log('HIT SL %: ' + (hitSLCount/totalTradesCount*100))
   console.log('PROFITABLE TRADES %: ' + (goodTradesCount/totalTradesCount * 100))
@@ -142,6 +176,7 @@ const _implementStrategy = ({ historicRates, currentHoldings, strategy, tickerDa
 
 
 const _feedThroughTestEnvironment = ({historicRates, sessionTransactions, wallet, strategy}) => {
+  console.log('@@@ TEST ENV @@@')
   const testFeedSpeed = 10
   const testHistoricPriceIndicator= historicRates.priceWithIndicators.slice(0, 60)
   const testHistoricPrice = historicRates.price.slice(0,60)
@@ -217,7 +252,7 @@ const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransacti
       currentAsk = parseFloat(data.best_ask)
       currentBid = parseFloat(data.best_bid)
       tickerData.currentPrice = parseFloat(data.price)
-      tickerData.time = Date.now()
+      tickerData.time = new Date();
     }
     if (counter === 0) {
       counter = minute
@@ -259,12 +294,6 @@ const main = async () => {
     config.PASSPHRASE,
     config.API_URI
   )
-  console.log('****************************************')
-
-  let historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing)
-
-  let sessionTransactions = []
-
   const websocket = new CoinbasePro.WebsocketClient(
     [config.INSTRUMENT],
     config.WSS,
@@ -275,11 +304,48 @@ const main = async () => {
     },
     { channels: ['ticker'] }
   )
+  console.log('****************************************')
+
 
   const wallet = {
     amountAvailable: 10000,
   }
-  _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  const sessionTransactions = []
+  let startDate = 22
+  const testingPeriod = [
+    { start: `2020-08-${startDate}T00:00:00+0000` , end: `2020-08-${startDate}T04:00:00+0000`},
+    { start: `2020-08-${startDate}T04:00:00+0000` , end: `2020-08-${startDate}T08:00:00+0000`},
+    { start: `2020-08-${startDate}T08:00:00+0000` , end: `2020-08-${startDate}T12:00:00+0000`},
+    { start: `2020-08-${startDate}T12:00:00+0000` , end: `2020-08-${startDate}T16:00:00+0000`},
+    { start: `2020-08-${startDate}T16:00:00+0000` , end: `2020-08-${startDate}T20:00:00+0000`},
+    { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:00:00+0000`},
+  ]
+  let counter = 0
+  let historicRates = { price: [], priceWithIndicators: []}
+  const testEnv = setInterval(async ()=> {
+    if (counter < testingPeriod.length) {
+      console.log('@@@@ BUILDING DATASET...... @@@@')
+      console.log(testingPeriod[counter])
+      console.log(historicRates.priceWithIndicators.length)
+      historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, testingPeriod[counter], historicRates)
+      counter++
+    } else {
+      console.log('clearing...')
+      clearInterval(testEnv)
+      console.log('cleared')
+      _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+    }
+  }, 1500)
+
+
+
+
+  const startEnd = {
+    start: '2020-08-23T15:00:00+0000',
+    end: '2020-08-23T19:00:00+0000'
+  }
+  // const historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, startEnd)
+  // _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
   // _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
 
   // Shutdown process
