@@ -89,11 +89,6 @@ const _appendIndicatorValuesToList = ({list, rsi, macd, ema50}) => {
 }
 
 const _analyse = (config, priceData, currentHoldings, wallet) => {
-  let emaStatus = false
-  let rsiStatus = false
-  let macdStatus = false
-  let macdZeroStatus = false
-
   let decision = 'NONE'
 
   const mostRecentPriceData = priceData[priceData.length - 1]
@@ -143,8 +138,6 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
 
     let decision = 'HOLD'
 
-
-
     // SELL LOGIC
     if (mostRecentPriceData.price <= stopLossPrice) {
       greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
@@ -163,53 +156,16 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
     return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: unitsBought*mostRecentPriceData.price, time: mostRecentTime, hitSL: mostRecentPriceData.price <= stopLossPrice}
   }
   // BUY LOGIC
-  if (mostRecentPriceData.price < emaTarget) {
-    emaStatus = true
-    if (mostRecentPriceData.rsi < config.rsiThreshold) {
-      rsiStatus = true
-      if (mostRecentPriceData.macd.histogram < config.minimumMACDLevel) {
-        greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
-        greenyLogs('@@@@@@@@@@@@ POTENTIAL BUY WINDOW @@@@@@@@@@@@@@@@')
-        macdZeroStatus = true
-
-        let prevVal = Infinity
-        for (const val of macdSlice) {
-          if (val.macd.histogram < prevVal) {
-            prevVal = val.macd.histogram
-          }
-        }
-
-        greenyLogs('current: ' + macdSlice[2].macd.histogram)
-        greenyLogs('prev: ' + macdSlice[1].macd.histogram)
-        greenyLogs('max: ' + prevVal)
-
-        // furthest divergence should be middle number
-        let divergence = config.divergenceDistance(config.macdPriceLookupPeriod)
-        if (macdSlice[divergence].macd.histogram === prevVal) {
-          macdStatus = true
-          decision = 'BUY'
-        }
-
-      }
-    }
+  const buyCondition = config.buyCondition({ alreadyTouchedRSIThreshold: greenyState.states.alreadyTouchedRSIThreshold, config, emaTarget, macdSlice, mostRecentPriceData, mostRecentTime})
+  greenyState.states.alreadyTouchedRSIThreshold = buyCondition.alreadyTouchedRSIThreshold
+  if (buyCondition.signal) {
+    greenyLogs('@@@@@@@@ BOUGHT @@@@@@@@@')
+    greenyLogs('Bought at price: ' + mostRecentPriceData.price)
+    greenyLogs('>>>>>>>>>>>>>>>>>>>>> BOUGHT END <<<<<<<<<<<<<<<<<<<<<')
+    decision = 'BUY'
   }
 
   console.log('Time: ' + mostRecentTime)
-
-  // console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
-  // console.log('NO HOLDINGS')
-  // console.log('************')
-  // console.log('Stage1: ' + 'Price under ema by atleast ' + config.crossedEmaThreshold + '%: ' + emaStatus)
-  // console.log('Stage2: ' + 'Price RSI < ' + config.rsiThreshold + ': ' + rsiStatus)
-  // console.log('Stage3: ' + 'MACD less than ' + config.minimumMACDLevel + ': '+ macdZeroStatus)
-  // console.log('Stage4: ' + 'MACD closing: ' + macdStatus)
-  // console.log('************')
-  // console.log('Time: ' + mostRecentTime)
-  // console.log('Price: ' + mostRecentPriceData.price)
-  // console.log('EMA50: ' + mostRecentPriceData.ema50)
-  // console.log('RSI: ' + mostRecentPriceData.rsi)
-  // console.log('MACD histo: ' + mostRecentPriceData.macd.histogram)
-  // console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
 
   greenyLogs('----------------------------------------------')
   greenyLogs('Time: ' + mostRecentTime)
@@ -217,12 +173,6 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
   greenyLogs('EMA50: ' + mostRecentPriceData.ema50)
   greenyLogs('RSI: ' + mostRecentPriceData.rsi)
   greenyLogs('MACD histo: ' + mostRecentPriceData.macd.histogram)
-  greenyLogs('************')
-  greenyLogs('Stage1: ' + 'Price under ema by atleast ' + config.crossedEmaThreshold + '%: ' + emaStatus)
-  greenyLogs('Stage2: ' + 'Price RSI < ' + config.rsiThreshold + ': ' + rsiStatus)
-  greenyLogs('Stage3: ' + 'MACD less than ' + config.minimumMACDLevel + ': '+ macdZeroStatus)
-  greenyLogs('Stage4: ' + 'MACD closing: ' + macdStatus)
-  greenyLogs('************')
   greenyLogs('EMA target: ' + emaTarget)
   greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
 

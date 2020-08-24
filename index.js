@@ -318,7 +318,7 @@ const main = async () => {
   const sessionTransactions = []
 
   // --------------------------
-  let startDate = 21
+  let startDate = 20
   const testingPeriod = [
     { start: `2020-08-${startDate}T00:00:00+0000` , end: `2020-08-${startDate}T04:00:00+0000`},
     { start: `2020-08-${startDate}T04:00:00+0000` , end: `2020-08-${startDate}T08:00:00+0000`},
