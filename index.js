@@ -49,7 +49,7 @@ const _getHistoricRates = async (client, strategyPreprocessing, startEnd, period
     console.log('@@ COMPLETED @@')
     console.log(periodTesting.priceWithIndicators[periodTesting.priceWithIndicators.length -1])
 
-    if (periodTesting.priceWithIndicators.length > 1400) {
+    if (periodTesting.priceWithIndicators.length > 7000) {
       console.log('@@@ STARTING GREENY PREPROCESSING @@@')
       console.log(periodTesting.priceWithIndicators.length)
       data = strategyPreprocessing(periodTesting)
@@ -93,7 +93,15 @@ const _displayEndMessage = (sessionTransactions) => {
   let totalTradesCount = 0
   let goodTradesCount = 0
   let hitSLCount = 0
+  let avgPercentGain = 0
+  let avgPercentLoss = 0
+  let badTradesCount = 0
   const fileName = './greeny-RESULTS'
+
+  // @TODO: remove
+  // if (sessionTransactions[sessionTransactions.length -1].action === 'BUY') {
+  //   sessionTransactions.pop()
+  // }
 
   for (const transaction of sessionTransactions) {
     fs.appendFileSync(fileName, JSON.stringify(transaction) + '\r\n')
@@ -104,10 +112,16 @@ const _displayEndMessage = (sessionTransactions) => {
     if (transaction.action === 'SELL') {
       totalTradesCount++
       averagePL += transaction.profitLoss
+
       sellCount++
       totalSell += transaction.totalValue
       if (transaction.profitLoss > 0) {
+        avgPercentGain += (transaction.profitLoss/10000)*100
         goodTradesCount++
+      }
+      if (transaction.profitLoss < 0) {
+        avgPercentLoss += (Math.abs(transaction.profitLoss)/10000)*100
+        badTradesCount++
       }
       if (transaction.hitSL) {
         hitSLCount++
@@ -128,6 +142,8 @@ const _displayEndMessage = (sessionTransactions) => {
   console.log('AVERAGE P/L PER TRADE: ' + averagePL/sellCount)
   console.log('HIT SL %: ' + (hitSLCount/totalTradesCount*100))
   console.log('PROFITABLE TRADES %: ' + (goodTradesCount/totalTradesCount * 100))
+  console.log('AVG % GAIN ON GOOD TRADES: ' + (avgPercentGain/goodTradesCount))
+  console.log('AVG % LOSS ON BAD TRADES: ' + (avgPercentLoss/badTradesCount))
   console.log('SAVED TO: ' + fileName)
 }
 
@@ -325,7 +341,35 @@ const main = async () => {
     { start: `2020-08-${startDate}T08:00:00+0000` , end: `2020-08-${startDate}T12:00:00+0000`},
     { start: `2020-08-${startDate}T12:00:00+0000` , end: `2020-08-${startDate}T16:00:00+0000`},
     { start: `2020-08-${startDate}T16:00:00+0000` , end: `2020-08-${startDate}T20:00:00+0000`},
-    { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:30:00+0000`},
+    { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:00:00+0000`},
+
+    { start: `2020-08-${startDate+1}T00:00:00+0000` , end: `2020-08-${startDate+1}T04:00:00+0000`},
+    { start: `2020-08-${startDate+1}T04:00:00+0000` , end: `2020-08-${startDate+1}T08:00:00+0000`},
+    { start: `2020-08-${startDate+1}T08:00:00+0000` , end: `2020-08-${startDate+1}T12:00:00+0000`},
+    { start: `2020-08-${startDate+1}T12:00:00+0000` , end: `2020-08-${startDate+1}T16:00:00+0000`},
+    { start: `2020-08-${startDate+1}T16:00:00+0000` , end: `2020-08-${startDate+1}T20:00:00+0000`},
+    { start: `2020-08-${startDate+1}T20:00:00+0000` , end: `2020-08-${startDate+2}T00:00:00+0000`},
+
+    { start: `2020-08-${startDate+2}T00:00:00+0000` , end: `2020-08-${startDate+2}T04:00:00+0000`},
+    { start: `2020-08-${startDate+2}T04:00:00+0000` , end: `2020-08-${startDate+2}T08:00:00+0000`},
+    { start: `2020-08-${startDate+2}T08:00:00+0000` , end: `2020-08-${startDate+2}T12:00:00+0000`},
+    { start: `2020-08-${startDate+2}T12:00:00+0000` , end: `2020-08-${startDate+2}T16:00:00+0000`},
+    { start: `2020-08-${startDate+2}T16:00:00+0000` , end: `2020-08-${startDate+2}T20:00:00+0000`},
+    { start: `2020-08-${startDate+2}T20:00:00+0000` , end: `2020-08-${startDate+3}T00:00:00+0000`},
+
+    { start: `2020-08-${startDate+3}T00:00:00+0000` , end: `2020-08-${startDate+3}T04:00:00+0000`},
+    { start: `2020-08-${startDate+3}T04:00:00+0000` , end: `2020-08-${startDate+3}T08:00:00+0000`},
+    { start: `2020-08-${startDate+3}T08:00:00+0000` , end: `2020-08-${startDate+3}T12:00:00+0000`},
+    { start: `2020-08-${startDate+3}T12:00:00+0000` , end: `2020-08-${startDate+3}T16:00:00+0000`},
+    { start: `2020-08-${startDate+3}T16:00:00+0000` , end: `2020-08-${startDate+3}T20:00:00+0000`},
+    { start: `2020-08-${startDate+3}T20:00:00+0000` , end: `2020-08-${startDate+4}T00:00:00+0000`},
+
+    { start: `2020-08-${startDate+4}T00:00:00+0000` , end: `2020-08-${startDate+4}T04:00:00+0000`},
+    { start: `2020-08-${startDate+4}T04:00:00+0000` , end: `2020-08-${startDate+4}T08:00:00+0000`},
+    { start: `2020-08-${startDate+4}T08:00:00+0000` , end: `2020-08-${startDate+4}T12:00:00+0000`},
+    { start: `2020-08-${startDate+4}T12:00:00+0000` , end: `2020-08-${startDate+4}T16:00:00+0000`},
+    { start: `2020-08-${startDate+4}T16:00:00+0000` , end: `2020-08-${startDate+4}T20:00:00+0000`},
+    { start: `2020-08-${startDate+4}T20:00:00+0000` , end: `2020-08-${startDate+5}T00:00:00+0000`},
   ]
   let counter = 0
   let historicRates = { price: [], priceWithIndicators: []}
@@ -348,11 +392,11 @@ const main = async () => {
 
 
 
-  const startEnd = {
-    start: '2020-08-23T15:00:00+0000',
-    end: '2020-08-23T19:00:00+0000'
-  }
-  // const historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, startEnd)
+  // const startEnd = {
+  //   start: '2020-08-24T05:30:00+0000',
+  //   end: '2020-08-24T09:30:00+0000'
+  // }
+  // const historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, false)
   // _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
   // _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
 

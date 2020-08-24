@@ -107,7 +107,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
   // limit to 1 order
   if (currentHoldings !== 0) {
 
-    const result = config.takeProfitCondition(mostRecentPriceData.price, mostRecentPriceData.ema50, mostRecentPriceData.ema20, greenyState.states.alreadyCrossedEma50)
+    const result = config.takeProfitCondition({ currentPrice: mostRecentPriceData.price, ema50: mostRecentPriceData.ema50, ema20: mostRecentPriceData.ema20, alreadyCrossedEma50: greenyState.states.alreadyCrossedEma50, config})
     greenyState.states.alreadyCrossedEma50 = result.alreadyCrossedEma50
 
     // console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
