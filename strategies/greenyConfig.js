@@ -6,6 +6,8 @@ exports.greeny = {
   emaModifier: 0.9998,
   // <ema20Above50Modifier> how much over ema20 should be over ema50 before TP
   ema20Above50Modifier: 0.9995,
+  // <ema20TPModifier> how much above ema20 to tp
+  ema20TPModifier: 1.05,
   // stage 2 'Price RSI < <rsiThreshold>'
   rsiThreshold: 35,
   // stage 3 'MACD less than <minimumMACDLevel>'
@@ -13,7 +15,7 @@ exports.greeny = {
   // stage 4 'MACD closing' - takes <macdPriceLookupPeriod> period(s) and then uses <divergenceDistance> to
   // calulate whether or not MACD is closing
   // <macdConvergenceThreshold> the minimum distance between max histogram value and current histogram value
-  macdConvergenceThreshold: 0.99,
+  macdConvergenceThreshold: 0.9995,
   // <macdSignalCrossedThreshold> how far away from signal line can macd be before considering it a good buy
   macdSignalCrossedThreshold: 1.2,
   // <macdPriceLookupPeriod> the amount of periods to find a max macd to get a V shape close
@@ -98,7 +100,7 @@ exports.greeny = {
       // Crossed EMA 50
       greenyLogs('@@@@@@@@ POTENTIAL SELL @@@@@@@@@@')
       console.log('@@@@@@@@ POTENTIAL SELL @@@@@@@@@@')
-      if (currentPrice <= (ema50*config.emaModifier)) {
+      if (currentPrice <= (ema50*config.emaModifier) && currentPrice >= currentHoldings.price) {
         // Sell if it crosses back down before crossing ema20
         greenyLogs('Crossing back down on ema50 before crossing up on ema20')
         console.log('Crossing back down on ema50 before crossing up on ema20')
@@ -107,7 +109,7 @@ exports.greeny = {
       if ((ema20*config.ema20Above50Modifier) >= ema50) {
         greenyLogs('Ema20 Crossing up on ema50')
         console.log('Ema20 Crossing up on ema50')
-        if (currentPrice <= ema20 && currentPrice > currentHoldings.price) {
+        if (currentPrice <= (ema20*config.ema20TPModifier) && currentPrice > currentHoldings.price) {
           greenyLogs('Current price > ema20 and ema20 > ema50')
           greenyLogs('congrats!')
           console.log('Current price > ema20 and ema20 > ema50')
