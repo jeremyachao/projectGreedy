@@ -191,7 +191,7 @@ const _implementStrategy = ({ historicRates, currentHoldings, strategy, tickerDa
       currentHoldings = 0
     }
   }
-  return currentHoldings
+  return {currentHoldings, decision: strategyExecutionResult}
 }
 
 
@@ -207,7 +207,7 @@ const _feedThroughTestEnvironment = ({historicRates, sessionTransactions, wallet
 
   let testCurrentPrice = 0
   let testCounter = 0
-  let testcurrentHoldings = 0
+  let result = { decision: 'NONE', currentHoldings: 0}
   let testlastStatus = 'NONE'
 
   let interval = setInterval(()=>{
@@ -221,7 +221,13 @@ const _feedThroughTestEnvironment = ({historicRates, sessionTransactions, wallet
         time: testCurrentTime
       }
       // NOTE: this is different size from real historicRates 60 in test mode 250 in real
-      testcurrentHoldings = _implementStrategy({ sessionTransactions, currentHoldings: testcurrentHoldings, historicRates: testHistoricRates, strategy, time: new Date(testCurrentTime * 1000), tickerData, wallet })
+      result = _implementStrategy({ sessionTransactions, currentHoldings: result.currentHoldings, historicRates: testHistoricRates, strategy, time: new Date(testCurrentTime * 1000), tickerData, wallet })
+      if (result.decision.decision === 'BUY') {
+        console.log('MOCK BUY')
+      }
+      if (result.decision.decision === 'SELL') {
+        console.log('MOCK SELL')
+      }
     } else {
       _displayEndMessage(sessionTransactions)
       clearInterval(interval)
@@ -230,10 +236,10 @@ const _feedThroughTestEnvironment = ({historicRates, sessionTransactions, wallet
 }
 
 
-const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransactions, wallet, strategy}) => {
+const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionTransactions, wallet, strategy}) => {
   let currentPrice = 0
   let period = 60
-  let currentHoldings = 0
+  let result = { decision: 'NONE', currentHoldings: 0}
 
   let tickerData = {
     currentPrice,
@@ -242,7 +248,7 @@ const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransacti
 
   let counter = (period - new Date().getSeconds())
 
-  websocket.on('message', (data) => {
+  websocket.on('message', async (data) => {
   /* work with data */
 
     if (data.type === 'heartbeat') {
@@ -261,7 +267,18 @@ const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransacti
       console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
       console.log('Period Elapsed')
       console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
-      currentHoldings = _implementStrategy({ sessionTransactions, currentHoldings: currentHoldings, historicRates: historicRates, strategy, tickerData, wallet })
+      result = _implementStrategy({ sessionTransactions, currentHoldings: result.currentHoldings, historicRates: historicRates, strategy, tickerData, wallet })
+
+      if (result.decision.action === 'BUY') {
+        const buyOrder = await client.placeOrder({ type: 'market', side: 'buy', size: '1', product_id: config.INSTRUMENT });
+        console.log('@@@@ BUY ORDER EXECUTED @@@')
+        console.log(buyOrder)
+      }
+      if (result.decision.action === 'SELL') {
+        const sellOrder = await client.placeOrder({ type: 'market', size: '1', side: 'sell', product_id: config.INSTRUMENT });
+        console.log('@@@@ SELL EXECUTED @@@')
+        console.log(sellOrder)
+      }
     }
   })
   websocket.on('error', err => {
@@ -293,19 +310,27 @@ const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransacti
 // console.log(await client.placeOrder(buyParams))
 
 const main = async () => {
+  // const client = new CoinbasePro.AuthenticatedClient(
+  //   config.API_KEY,
+  //   config.SECRET,
+  //   config.PASSPHRASE,
+  //   config.API_URI
+  // )
+
   const client = new CoinbasePro.AuthenticatedClient(
-    config.API_KEY,
-    config.SECRET,
-    config.PASSPHRASE,
-    config.API_URI
+    config.SANDBOX_API_KEY,
+    config.SANDBOX_SECRET,
+    config.SANDBOX_PASSPHRASE,
+    config.SANDBOX_URI
   )
+
   const websocket = new CoinbasePro.WebsocketClient(
     [config.INSTRUMENT],
-    config.WSS,
+    config.SANDBOX_WSS,
     {
-      key: config.API_KEY,
-      secret: config.SECRET,
-      passphrase: config.PASSPHRASE,
+      key: config.SANDBOX_API_KEY,
+      secret: config.SANDBOX_SECRET,
+      passphrase: config.SANDBOX_PASSPHRASE,
     },
     { channels: ['ticker'] }
   )
@@ -315,62 +340,87 @@ const main = async () => {
   const wallet = {
     amountAvailable: 10000,
   }
+  // bcdd4c40-df40-5d76-810c-74aab722b223
+  // const depositParamsBTC = {
+  //   amount: '10000',
+  //   currency: 'USD',
+  //   coinbase_account_id: 'bcdd4c40-df40-5d76-810c-74aab722b223', // BTC Coinbase Account ID
+  // };
+  // await client.deposit(depositParamsBTC);
+
+  const accounts = await client.getAccounts()
+
+  let accountID
+  let amountAvailable
+  for (const acc of accounts) {
+    if (acc.currency === 'USD') {
+      accountID = acc.id
+      amountAvailable = acc.balance
+    }
+  }
+
+  const realWallet = {
+    accountID,
+    amountAvailable,
+  }
+
+  console.log(realWallet)
   const sessionTransactions = []
 
   // --------------------------
-  let startDate = 20
-  const testingPeriod = [
-    { start: `2020-08-${startDate}T00:00:00+0000` , end: `2020-08-${startDate}T04:00:00+0000`},
-    { start: `2020-08-${startDate}T04:00:00+0000` , end: `2020-08-${startDate}T08:00:00+0000`},
-    { start: `2020-08-${startDate}T08:00:00+0000` , end: `2020-08-${startDate}T12:00:00+0000`},
-    { start: `2020-08-${startDate}T12:00:00+0000` , end: `2020-08-${startDate}T16:00:00+0000`},
-    { start: `2020-08-${startDate}T16:00:00+0000` , end: `2020-08-${startDate}T20:00:00+0000`},
-    { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:00:00+0000`},
-
-    { start: `2020-08-${startDate+1}T00:00:00+0000` , end: `2020-08-${startDate+1}T04:00:00+0000`},
-    { start: `2020-08-${startDate+1}T04:00:00+0000` , end: `2020-08-${startDate+1}T08:00:00+0000`},
-    { start: `2020-08-${startDate+1}T08:00:00+0000` , end: `2020-08-${startDate+1}T12:00:00+0000`},
-    { start: `2020-08-${startDate+1}T12:00:00+0000` , end: `2020-08-${startDate+1}T16:00:00+0000`},
-    { start: `2020-08-${startDate+1}T16:00:00+0000` , end: `2020-08-${startDate+1}T20:00:00+0000`},
-    { start: `2020-08-${startDate+1}T20:00:00+0000` , end: `2020-08-${startDate+2}T00:00:00+0000`},
-
-    { start: `2020-08-${startDate+2}T00:00:00+0000` , end: `2020-08-${startDate+2}T04:00:00+0000`},
-    { start: `2020-08-${startDate+2}T04:00:00+0000` , end: `2020-08-${startDate+2}T08:00:00+0000`},
-    { start: `2020-08-${startDate+2}T08:00:00+0000` , end: `2020-08-${startDate+2}T12:00:00+0000`},
-    { start: `2020-08-${startDate+2}T12:00:00+0000` , end: `2020-08-${startDate+2}T16:00:00+0000`},
-    { start: `2020-08-${startDate+2}T16:00:00+0000` , end: `2020-08-${startDate+2}T20:00:00+0000`},
-    { start: `2020-08-${startDate+2}T20:00:00+0000` , end: `2020-08-${startDate+3}T00:00:00+0000`},
-
-    { start: `2020-08-${startDate+3}T00:00:00+0000` , end: `2020-08-${startDate+3}T04:00:00+0000`},
-    { start: `2020-08-${startDate+3}T04:00:00+0000` , end: `2020-08-${startDate+3}T08:00:00+0000`},
-    { start: `2020-08-${startDate+3}T08:00:00+0000` , end: `2020-08-${startDate+3}T12:00:00+0000`},
-    { start: `2020-08-${startDate+3}T12:00:00+0000` , end: `2020-08-${startDate+3}T16:00:00+0000`},
-    { start: `2020-08-${startDate+3}T16:00:00+0000` , end: `2020-08-${startDate+3}T20:00:00+0000`},
-    { start: `2020-08-${startDate+3}T20:00:00+0000` , end: `2020-08-${startDate+4}T00:00:00+0000`},
-
-    { start: `2020-08-${startDate+4}T00:00:00+0000` , end: `2020-08-${startDate+4}T04:00:00+0000`},
-    { start: `2020-08-${startDate+4}T04:00:00+0000` , end: `2020-08-${startDate+4}T08:00:00+0000`},
-    { start: `2020-08-${startDate+4}T08:00:00+0000` , end: `2020-08-${startDate+4}T12:00:00+0000`},
-    { start: `2020-08-${startDate+4}T12:00:00+0000` , end: `2020-08-${startDate+4}T16:00:00+0000`},
-    { start: `2020-08-${startDate+4}T16:00:00+0000` , end: `2020-08-${startDate+4}T20:00:00+0000`},
-    { start: `2020-08-${startDate+4}T20:00:00+0000` , end: `2020-08-${startDate+5}T00:00:00+0000`},
-  ]
-  let counter = 0
-  let historicRates = { price: [], priceWithIndicators: []}
-  const testEnv = setInterval(async ()=> {
-    if (counter < testingPeriod.length) {
-      console.log('@@@@ BUILDING DATASET...... @@@@')
-      console.log(testingPeriod[counter])
-      console.log(historicRates.priceWithIndicators.length)
-      historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, testingPeriod[counter], historicRates)
-      counter++
-    } else {
-      console.log('clearing...')
-      clearInterval(testEnv)
-      console.log('cleared')
-      _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
-    }
-  }, 1500)
+  // let startDate = 20
+  // const testingPeriod = [
+  //   { start: `2020-08-${startDate}T00:00:00+0000` , end: `2020-08-${startDate}T04:00:00+0000`},
+  //   { start: `2020-08-${startDate}T04:00:00+0000` , end: `2020-08-${startDate}T08:00:00+0000`},
+  //   { start: `2020-08-${startDate}T08:00:00+0000` , end: `2020-08-${startDate}T12:00:00+0000`},
+  //   { start: `2020-08-${startDate}T12:00:00+0000` , end: `2020-08-${startDate}T16:00:00+0000`},
+  //   { start: `2020-08-${startDate}T16:00:00+0000` , end: `2020-08-${startDate}T20:00:00+0000`},
+  //   { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:00:00+0000`},
+  //
+  //   { start: `2020-08-${startDate+1}T00:00:00+0000` , end: `2020-08-${startDate+1}T04:00:00+0000`},
+  //   { start: `2020-08-${startDate+1}T04:00:00+0000` , end: `2020-08-${startDate+1}T08:00:00+0000`},
+  //   { start: `2020-08-${startDate+1}T08:00:00+0000` , end: `2020-08-${startDate+1}T12:00:00+0000`},
+  //   { start: `2020-08-${startDate+1}T12:00:00+0000` , end: `2020-08-${startDate+1}T16:00:00+0000`},
+  //   { start: `2020-08-${startDate+1}T16:00:00+0000` , end: `2020-08-${startDate+1}T20:00:00+0000`},
+  //   { start: `2020-08-${startDate+1}T20:00:00+0000` , end: `2020-08-${startDate+2}T00:00:00+0000`},
+  //
+  //   { start: `2020-08-${startDate+2}T00:00:00+0000` , end: `2020-08-${startDate+2}T04:00:00+0000`},
+  //   { start: `2020-08-${startDate+2}T04:00:00+0000` , end: `2020-08-${startDate+2}T08:00:00+0000`},
+  //   { start: `2020-08-${startDate+2}T08:00:00+0000` , end: `2020-08-${startDate+2}T12:00:00+0000`},
+  //   { start: `2020-08-${startDate+2}T12:00:00+0000` , end: `2020-08-${startDate+2}T16:00:00+0000`},
+  //   { start: `2020-08-${startDate+2}T16:00:00+0000` , end: `2020-08-${startDate+2}T20:00:00+0000`},
+  //   { start: `2020-08-${startDate+2}T20:00:00+0000` , end: `2020-08-${startDate+3}T00:00:00+0000`},
+  //
+  //   { start: `2020-08-${startDate+3}T00:00:00+0000` , end: `2020-08-${startDate+3}T04:00:00+0000`},
+  //   { start: `2020-08-${startDate+3}T04:00:00+0000` , end: `2020-08-${startDate+3}T08:00:00+0000`},
+  //   { start: `2020-08-${startDate+3}T08:00:00+0000` , end: `2020-08-${startDate+3}T12:00:00+0000`},
+  //   { start: `2020-08-${startDate+3}T12:00:00+0000` , end: `2020-08-${startDate+3}T16:00:00+0000`},
+  //   { start: `2020-08-${startDate+3}T16:00:00+0000` , end: `2020-08-${startDate+3}T20:00:00+0000`},
+  //   { start: `2020-08-${startDate+3}T20:00:00+0000` , end: `2020-08-${startDate+4}T00:00:00+0000`},
+  //
+  //   { start: `2020-08-${startDate+4}T00:00:00+0000` , end: `2020-08-${startDate+4}T04:00:00+0000`},
+  //   { start: `2020-08-${startDate+4}T04:00:00+0000` , end: `2020-08-${startDate+4}T08:00:00+0000`},
+  //   { start: `2020-08-${startDate+4}T08:00:00+0000` , end: `2020-08-${startDate+4}T12:00:00+0000`},
+  //   { start: `2020-08-${startDate+4}T12:00:00+0000` , end: `2020-08-${startDate+4}T16:00:00+0000`},
+  //   { start: `2020-08-${startDate+4}T16:00:00+0000` , end: `2020-08-${startDate+4}T20:00:00+0000`},
+  //   { start: `2020-08-${startDate+4}T20:00:00+0000` , end: `2020-08-${startDate+5}T00:00:00+0000`},
+  // ]
+  // let counter = 0
+  // let historicRates = { price: [], priceWithIndicators: []}
+  // const testEnv = setInterval(async ()=> {
+  //   if (counter < testingPeriod.length) {
+  //     console.log('@@@@ BUILDING DATASET...... @@@@')
+  //     console.log(testingPeriod[counter])
+  //     console.log(historicRates.priceWithIndicators.length)
+  //     historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, testingPeriod[counter], historicRates)
+  //     counter++
+  //   } else {
+  //     console.log('clearing...')
+  //     clearInterval(testEnv)
+  //     console.log('cleared')
+  //     -12({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  //   }
+  // }, 1500)
 
   // --------------------------
 
@@ -380,9 +430,10 @@ const main = async () => {
   //   start: '2020-08-21T04:00:00+0000',
   //   end: '2020-08-21T08:00:00+0000'
   // }
-  // const historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, startEnd)
+  const historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, false)
   // _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
-  // _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  _feedThroughWebSocket({client, websocket, historicRates, sessionTransactions, wallet: realWallet, strategy: strategies.greenyNotGreedy})
+
 
   // Shutdown process
   if (process.platform === "win32") {
