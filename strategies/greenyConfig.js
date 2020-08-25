@@ -1,8 +1,11 @@
+const greenyLogs = require('./greenyLogs')
 exports.greeny = {
   // stage 1 'Price under ema by atleast <crossedEmaThreshold>%'
-  crossedEmaThreshold: 0.05,
+  crossedEmaThreshold: 0.99995,
   // <emaModifier> used to counteract minor calculation error of ema
-  emaModifier: 0.95,
+  emaModifier: 0.9998,
+  // <ema20Above50Modifier> how much over ema20 should be over ema50 before TP
+  ema20Above50Modifier: 0.9995,
   // stage 2 'Price RSI < <rsiThreshold>'
   rsiThreshold: 35,
   // stage 3 'MACD less than <minimumMACDLevel>'
@@ -12,21 +15,24 @@ exports.greeny = {
   // <macdConvergenceThreshold> the minimum distance between max histogram value and current histogram value
   macdConvergenceThreshold: 0.99,
   // <macdSignalCrossedThreshold> how far away from signal line can macd be before considering it a good buy
-  macdSignalCrossedThreshold: 1.15,
+  macdSignalCrossedThreshold: 1.2,
   // <macdPriceLookupPeriod> the amount of periods to find a max macd to get a V shape close
   macdPriceLookupPeriod: 3,
   // <divergenceDistance> the location to look for a max macd within the lookup period
   divergenceDistance: (macdPriceLookupPeriod) => { return Math.floor(macdPriceLookupPeriod / 2) },
   // P/L settings
-  stopLossPercentage: 0.1,
+  stopLossPercentage: 0.995,
   // 1 = 100% of money to use per trade
   percentageToUsePerTrade: 1,
   buyCondition: ({mostRecentPriceData, emaTarget, alreadyTouchedRSIThreshold, config, macdSlice, mostRecentTime}) => {
     if (mostRecentPriceData.price < emaTarget) {
       if (alreadyTouchedRSIThreshold) {
         console.log('Bounced off RSI threshold already')
+        greenyLogs('Bounced off RSI threshold already')
         if (mostRecentPriceData.macd.histogram < config.minimumMACDLevel) {
           console.log('macd level valid')
+          greenyLogs('macd level valid')
+
           let prevVal = Infinity
           for (const val of macdSlice) {
             if (val.macd.histogram < prevVal) {
@@ -35,18 +41,19 @@ exports.greeny = {
           }
           // furthest divergence should be middle number of MACDS BELOW 0 so always negative hence >
           let divergence = config.divergenceDistance(config.macdPriceLookupPeriod)
-
-          // if (macdSlice[divergence].macd.histogram < mostRecentPriceData.macd.histogram ) {
-          //   console.log('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
-          //   console.log(mostRecentTime)
-          //   console.log('MACD CLOSING')
-          //   console.log('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
-          //
-          // } else {
-          //   return { signal: false, alreadyTouchedRSIThreshold: true }
-          // }
-
           if (mostRecentPriceData.macd.histogram > (macdSlice[divergence].macd.histogram * config.macdConvergenceThreshold)) {
+
+            greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
+            greenyLogs(mostRecentTime)
+            greenyLogs('MACD macd: ' +mostRecentPriceData.macd.MACD)
+            greenyLogs('MACD histo: ' + mostRecentPriceData.macd.histogram)
+            greenyLogs('MACD signal: ' +mostRecentPriceData.macd.signal)
+            greenyLogs('histo threshold: ' +(macdSlice[divergence].macd.histogram * config.macdConvergenceThreshold))
+            greenyLogs('signal threshold: ' +(mostRecentPriceData.macd.signal*config.macdSignalCrossedThreshold))
+            greenyLogs(mostRecentPriceData.macd.MACD + ' > ' + (mostRecentPriceData.macd.signal*config.macdSignalCrossedThreshold))
+            greenyLogs(mostRecentPriceData.macd.MACD >= (mostRecentPriceData.macd.signal*config.macdSignalCrossedThreshold))
+            greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
+
             console.log('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
             console.log(mostRecentTime)
             console.log('MACD macd: ' +mostRecentPriceData.macd.MACD)
@@ -57,8 +64,10 @@ exports.greeny = {
             console.log(mostRecentPriceData.macd.MACD + ' > ' + (mostRecentPriceData.macd.signal*config.macdSignalCrossedThreshold))
             console.log(mostRecentPriceData.macd.MACD >= (mostRecentPriceData.macd.signal*config.macdSignalCrossedThreshold))
             console.log('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
+
             if (mostRecentPriceData.macd.MACD >= (mostRecentPriceData.macd.signal*config.macdSignalCrossedThreshold)) {
               console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ BUY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+              greenyLogs('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ BUY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
               return { signal: true, alreadyTouchedRSIThreshold: false }
             } else {
               return { signal: false, alreadyTouchedRSIThreshold: true }
@@ -73,6 +82,7 @@ exports.greeny = {
       } else {
         if (mostRecentPriceData.rsi <= config.rsiThreshold) {
           console.log('Touched RSI threshold')
+          greenyLogs('Touched RSI threshold')
           return { signal: false, alreadyTouchedRSIThreshold: true }
         } else {
           return { signal: false, alreadyTouchedRSIThreshold: false }
@@ -82,16 +92,26 @@ exports.greeny = {
       return { signal: false, alreadyTouchedRSIThreshold: false }
     }
   },
-  takeProfitCondition: ({currentPrice, ema50, ema20, alreadyCrossedEma50, config}) => {
+  takeProfitCondition: ({currentHoldings, currentPrice, ema50, ema20, alreadyCrossedEma50, config}) => {
     // return currentPrice >= ema50 ? { signal: true } : { signal: false }
     if (alreadyCrossedEma50) {
       // Crossed EMA 50
+      greenyLogs('@@@@@@@@ POTENTIAL SELL @@@@@@@@@@')
+      console.log('@@@@@@@@ POTENTIAL SELL @@@@@@@@@@')
       if (currentPrice <= (ema50*config.emaModifier)) {
         // Sell if it crosses back down before crossing ema20
+        greenyLogs('Crossing back down on ema50 before crossing up on ema20')
+        console.log('Crossing back down on ema50 before crossing up on ema20')
         return { signal: true, alreadyCrossedEma50: false }
       }
-      if (ema20 >= ema50) {
-        if (currentPrice <= ema20) {
+      if ((ema20*config.ema20Above50Modifier) >= ema50) {
+        greenyLogs('Ema20 Crossing up on ema50')
+        console.log('Ema20 Crossing up on ema50')
+        if (currentPrice <= ema20 && currentPrice > currentHoldings.price) {
+          greenyLogs('Current price > ema20 and ema20 > ema50')
+          greenyLogs('congrats!')
+          console.log('Current price > ema20 and ema20 > ema50')
+          console.log('congrats!')
           return { signal: true, alreadyCrossedEma50: false }
         } else {
           return { signal: false, alreadyCrossedEma50: true }
@@ -101,8 +121,12 @@ exports.greeny = {
       }
     } else {
       // Not yet crossed EMA 50
+      greenyLogs('Waiting for price to cross up on ema50')
+      console.log('Waiting for price to cross up on ema50')
       if (currentPrice >= (ema50*config.emaModifier)) {
         // Just crossed EMA 50
+        greenyLogs('Crossed ema50')
+        console.log('Crossed ema50')
         return { signal: false , alreadyCrossedEma50: true }
       } else {
         return { signal: false, alreadyCrossedEma50: false }

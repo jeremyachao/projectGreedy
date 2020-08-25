@@ -49,7 +49,7 @@ const _getHistoricRates = async (client, strategyPreprocessing, startEnd, period
     console.log('@@ COMPLETED @@')
     console.log(periodTesting.priceWithIndicators[periodTesting.priceWithIndicators.length -1])
 
-    if (periodTesting.priceWithIndicators.length > 7000) {
+    if (periodTesting.priceWithIndicators.length > 1400) {
       console.log('@@@ STARTING GREENY PREPROCESSING @@@')
       console.log(periodTesting.priceWithIndicators.length)
       data = strategyPreprocessing(periodTesting)
@@ -148,11 +148,11 @@ const _displayEndMessage = (sessionTransactions) => {
 }
 
 const _executeBuy = (currentPrice, units, time) => {
-  return { time: new Date(time), msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
+  return { time: time, msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units}
 }
 
 const _executeSell = (currentPrice, profitLoss, units, totalValue, time, hitSL) => {
-  return { time: new Date(time), msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units, hitSL: hitSL}
+  return { time: time, msg: 'SOLD ' + units + ' UNITS AT: ' + currentPrice, price: currentPrice, profitLoss: profitLoss, action: 'SELL', totalValue: totalValue, units: units, hitSL: hitSL}
 }
 
 const _executeHold = (currentPrice) => {
@@ -214,7 +214,7 @@ const _feedThroughTestEnvironment = ({historicRates, sessionTransactions, wallet
     if (testCounter < testFeed.length) {
       // NOTE: real version uses counter to countdown and THEN execute strategy
       testCurrentPrice = testFeed[testCounter].price
-      testCurrentTime = testFeed[testCounter].time
+      testCurrentTime = new Date(testFeed[testCounter].time*1000)
       testCounter++
       let tickerData = {
         currentPrice: testCurrentPrice,
@@ -231,10 +231,8 @@ const _feedThroughTestEnvironment = ({historicRates, sessionTransactions, wallet
 
 
 const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransactions, wallet, strategy}) => {
-  let currentAsk
-  let currentBid
   let currentPrice = 0
-  let minute = 5
+  let period = 60
   let currentHoldings = 0
 
   let tickerData = {
@@ -242,7 +240,7 @@ const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransacti
     time: 0,
   }
 
-  let counter = minute
+  let counter = (period - new Date().getSeconds())
 
   websocket.on('message', (data) => {
   /* work with data */
@@ -250,34 +248,20 @@ const _feedThroughWebSocket = async ({websocket, historicRates, sessionTransacti
     if (data.type === 'heartbeat') {
       let aboveEma = currentPrice > ema50[ema50.length - 1]
       // Every second
-      // console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
-      // console.log('price: ' + currentPrice)
-      // console.log('time: ' + new Date())
-      // console.log('----------')
-      // console.log('ema: ' + ema50[ema50.length - 1])
-      // console.log('above ema: ' + aboveEma)
-      // console.log('----------')
-      // console.log('RSI: ' + rsi[rsi.length -1])
-      // console.log('----------')
-      // console.log('MACD: ' + macd[macd.length -1].MACD)
-      // console.log('Signal: ' + macd[macd.length -1].signal)
-      // console.log('Histo: ' + macd[macd.length -1].histogram)
-      // console.log('----------')
-      // console.log('counter: ' + counter)
-      // console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
-      console.log('.')
+      console.log(counter)
       counter--
     }
     if (data.type ==='ticker'){
       // Real time
-      currentAsk = parseFloat(data.best_ask)
-      currentBid = parseFloat(data.best_bid)
       tickerData.currentPrice = parseFloat(data.price)
-      tickerData.time = new Date();
+      tickerData.time = data.time
     }
     if (counter === 0) {
-      counter = minute
-      _implementStrategy({ sessionTransactions, currentHoldings: currentHoldings, historicRates: historicRates, strategy, tickerData, wallet })
+      counter = period
+      console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+      console.log('Period Elapsed')
+      console.log('>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+      currentHoldings = _implementStrategy({ sessionTransactions, currentHoldings: currentHoldings, historicRates: historicRates, strategy, tickerData, wallet })
     }
   })
   websocket.on('error', err => {
@@ -334,70 +318,70 @@ const main = async () => {
   const sessionTransactions = []
 
   // --------------------------
-  let startDate = 20
-  const testingPeriod = [
-    { start: `2020-08-${startDate}T00:00:00+0000` , end: `2020-08-${startDate}T04:00:00+0000`},
-    { start: `2020-08-${startDate}T04:00:00+0000` , end: `2020-08-${startDate}T08:00:00+0000`},
-    { start: `2020-08-${startDate}T08:00:00+0000` , end: `2020-08-${startDate}T12:00:00+0000`},
-    { start: `2020-08-${startDate}T12:00:00+0000` , end: `2020-08-${startDate}T16:00:00+0000`},
-    { start: `2020-08-${startDate}T16:00:00+0000` , end: `2020-08-${startDate}T20:00:00+0000`},
-    { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:00:00+0000`},
+  // let startDate = 22
+  // const testingPeriod = [
+  //   { start: `2020-08-${startDate}T00:00:00+0000` , end: `2020-08-${startDate}T04:00:00+0000`},
+  //   { start: `2020-08-${startDate}T04:00:00+0000` , end: `2020-08-${startDate}T08:00:00+0000`},
+  //   { start: `2020-08-${startDate}T08:00:00+0000` , end: `2020-08-${startDate}T12:00:00+0000`},
+  //   { start: `2020-08-${startDate}T12:00:00+0000` , end: `2020-08-${startDate}T16:00:00+0000`},
+  //   { start: `2020-08-${startDate}T16:00:00+0000` , end: `2020-08-${startDate}T20:00:00+0000`},
+  //   { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:00:00+0000`},
 
-    { start: `2020-08-${startDate+1}T00:00:00+0000` , end: `2020-08-${startDate+1}T04:00:00+0000`},
-    { start: `2020-08-${startDate+1}T04:00:00+0000` , end: `2020-08-${startDate+1}T08:00:00+0000`},
-    { start: `2020-08-${startDate+1}T08:00:00+0000` , end: `2020-08-${startDate+1}T12:00:00+0000`},
-    { start: `2020-08-${startDate+1}T12:00:00+0000` , end: `2020-08-${startDate+1}T16:00:00+0000`},
-    { start: `2020-08-${startDate+1}T16:00:00+0000` , end: `2020-08-${startDate+1}T20:00:00+0000`},
-    { start: `2020-08-${startDate+1}T20:00:00+0000` , end: `2020-08-${startDate+2}T00:00:00+0000`},
+    // { start: `2020-08-${startDate+1}T00:00:00+0000` , end: `2020-08-${startDate+1}T04:00:00+0000`},
+    // { start: `2020-08-${startDate+1}T04:00:00+0000` , end: `2020-08-${startDate+1}T08:00:00+0000`},
+    // { start: `2020-08-${startDate+1}T08:00:00+0000` , end: `2020-08-${startDate+1}T12:00:00+0000`},
+    // { start: `2020-08-${startDate+1}T12:00:00+0000` , end: `2020-08-${startDate+1}T16:00:00+0000`},
+    // { start: `2020-08-${startDate+1}T16:00:00+0000` , end: `2020-08-${startDate+1}T20:00:00+0000`},
+    // { start: `2020-08-${startDate+1}T20:00:00+0000` , end: `2020-08-${startDate+2}T00:00:00+0000`},
+    //
+    // { start: `2020-08-${startDate+2}T00:00:00+0000` , end: `2020-08-${startDate+2}T04:00:00+0000`},
+    // { start: `2020-08-${startDate+2}T04:00:00+0000` , end: `2020-08-${startDate+2}T08:00:00+0000`},
+    // { start: `2020-08-${startDate+2}T08:00:00+0000` , end: `2020-08-${startDate+2}T12:00:00+0000`},
+    // { start: `2020-08-${startDate+2}T12:00:00+0000` , end: `2020-08-${startDate+2}T16:00:00+0000`},
+    // { start: `2020-08-${startDate+2}T16:00:00+0000` , end: `2020-08-${startDate+2}T20:00:00+0000`},
+    // { start: `2020-08-${startDate+2}T20:00:00+0000` , end: `2020-08-${startDate+3}T00:00:00+0000`},
 
-    { start: `2020-08-${startDate+2}T00:00:00+0000` , end: `2020-08-${startDate+2}T04:00:00+0000`},
-    { start: `2020-08-${startDate+2}T04:00:00+0000` , end: `2020-08-${startDate+2}T08:00:00+0000`},
-    { start: `2020-08-${startDate+2}T08:00:00+0000` , end: `2020-08-${startDate+2}T12:00:00+0000`},
-    { start: `2020-08-${startDate+2}T12:00:00+0000` , end: `2020-08-${startDate+2}T16:00:00+0000`},
-    { start: `2020-08-${startDate+2}T16:00:00+0000` , end: `2020-08-${startDate+2}T20:00:00+0000`},
-    { start: `2020-08-${startDate+2}T20:00:00+0000` , end: `2020-08-${startDate+3}T00:00:00+0000`},
-
-    { start: `2020-08-${startDate+3}T00:00:00+0000` , end: `2020-08-${startDate+3}T04:00:00+0000`},
-    { start: `2020-08-${startDate+3}T04:00:00+0000` , end: `2020-08-${startDate+3}T08:00:00+0000`},
-    { start: `2020-08-${startDate+3}T08:00:00+0000` , end: `2020-08-${startDate+3}T12:00:00+0000`},
-    { start: `2020-08-${startDate+3}T12:00:00+0000` , end: `2020-08-${startDate+3}T16:00:00+0000`},
-    { start: `2020-08-${startDate+3}T16:00:00+0000` , end: `2020-08-${startDate+3}T20:00:00+0000`},
-    { start: `2020-08-${startDate+3}T20:00:00+0000` , end: `2020-08-${startDate+4}T00:00:00+0000`},
-
-    { start: `2020-08-${startDate+4}T00:00:00+0000` , end: `2020-08-${startDate+4}T04:00:00+0000`},
-    { start: `2020-08-${startDate+4}T04:00:00+0000` , end: `2020-08-${startDate+4}T08:00:00+0000`},
-    { start: `2020-08-${startDate+4}T08:00:00+0000` , end: `2020-08-${startDate+4}T12:00:00+0000`},
-    { start: `2020-08-${startDate+4}T12:00:00+0000` , end: `2020-08-${startDate+4}T16:00:00+0000`},
-    { start: `2020-08-${startDate+4}T16:00:00+0000` , end: `2020-08-${startDate+4}T20:00:00+0000`},
-    { start: `2020-08-${startDate+4}T20:00:00+0000` , end: `2020-08-${startDate+5}T00:00:00+0000`},
-  ]
-  let counter = 0
-  let historicRates = { price: [], priceWithIndicators: []}
-  const testEnv = setInterval(async ()=> {
-    if (counter < testingPeriod.length) {
-      console.log('@@@@ BUILDING DATASET...... @@@@')
-      console.log(testingPeriod[counter])
-      console.log(historicRates.priceWithIndicators.length)
-      historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, testingPeriod[counter], historicRates)
-      counter++
-    } else {
-      console.log('clearing...')
-      clearInterval(testEnv)
-      console.log('cleared')
-      _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
-    }
-  }, 1500)
+    // { start: `2020-08-${startDate+3}T00:00:00+0000` , end: `2020-08-${startDate+3}T04:00:00+0000`},
+    // { start: `2020-08-${startDate+3}T04:00:00+0000` , end: `2020-08-${startDate+3}T08:00:00+0000`},
+    // { start: `2020-08-${startDate+3}T08:00:00+0000` , end: `2020-08-${startDate+3}T12:00:00+0000`},
+    // { start: `2020-08-${startDate+3}T12:00:00+0000` , end: `2020-08-${startDate+3}T16:00:00+0000`},
+    // { start: `2020-08-${startDate+3}T16:00:00+0000` , end: `2020-08-${startDate+3}T20:00:00+0000`},
+    // { start: `2020-08-${startDate+3}T20:00:00+0000` , end: `2020-08-${startDate+4}T00:00:00+0000`},
+    //
+    // { start: `2020-08-${startDate+4}T00:00:00+0000` , end: `2020-08-${startDate+4}T04:00:00+0000`},
+    // { start: `2020-08-${startDate+4}T04:00:00+0000` , end: `2020-08-${startDate+4}T08:00:00+0000`},
+    // { start: `2020-08-${startDate+4}T08:00:00+0000` , end: `2020-08-${startDate+4}T12:00:00+0000`},
+    // { start: `2020-08-${startDate+4}T12:00:00+0000` , end: `2020-08-${startDate+4}T16:00:00+0000`},
+    // { start: `2020-08-${startDate+4}T16:00:00+0000` , end: `2020-08-${startDate+4}T20:00:00+0000`},
+    // { start: `2020-08-${startDate+4}T20:00:00+0000` , end: `2020-08-${startDate+5}T00:00:00+0000`},
+  // ]
+  // let counter = 0
+  // let historicRates = { price: [], priceWithIndicators: []}
+  // const testEnv = setInterval(async ()=> {
+  //   if (counter < testingPeriod.length) {
+  //     console.log('@@@@ BUILDING DATASET...... @@@@')
+  //     console.log(testingPeriod[counter])
+  //     console.log(historicRates.priceWithIndicators.length)
+  //     historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, testingPeriod[counter], historicRates)
+  //     counter++
+  //   } else {
+  //     console.log('clearing...')
+  //     clearInterval(testEnv)
+  //     console.log('cleared')
+  //     _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  //   }
+  // }, 1500)
 
   // --------------------------
 
 
 
   // const startEnd = {
-  //   start: '2020-08-24T05:30:00+0000',
-  //   end: '2020-08-24T09:30:00+0000'
+  //   start: '2020-08-24T21:00:00+0000',
+  //   end: '2020-08-25T00:00:00+0000'
   // }
-  // const historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, false)
-  // _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
+  const historicRates = await _getHistoricRates(client, strategies.greenyPreprocessing, false)
+  _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
   // _feedThroughWebSocket({websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
 
   // Shutdown process
