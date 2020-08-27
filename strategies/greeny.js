@@ -20,7 +20,7 @@ const greenyState = require('./greenyState')
 exports.greenyPreprocessing = (data) => {
   const greenyReadyData = data
   const greenyIndicators = _calculateIndicators(greenyReadyData.price)
-  const appendedRates = _appendIndicatorValuesToList({ list: data.priceWithIndicators, ema20: greenyIndicators.ema20, ema50: greenyIndicators.ema50, rsi: greenyIndicators.rsi, macd: greenyIndicators.macd})
+  const appendedRates = _appendIndicatorValuesToList({ list: data.priceWithIndicators, ema20: greenyIndicators.ema20, ema50: greenyIndicators.ema50, rsi: greenyIndicators.rsi, macd: greenyIndicators.macd, ema200: greenyIndicators.ema200})
   greenyReadyData.priceWithIndicators = appendedRates
   return data
 }
@@ -53,9 +53,10 @@ exports.greenyNotgreedy = ({historicRates, currentHoldings, wallet, tickerData})
 const _calculateIndicators = (values) => {
   ema50 = indicators.EMA.calculate({ period: 50, values})
   ema20 = indicators.EMA.calculate({ period: 20, values})
+  ema200 = indicators.EMA.calculate({ period: 200, values})
   rsi = indicators.RSI.calculate({values, period: 14})
   macd = indicators.MACD.calculate({values, fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, SimpleMAOscillator: false, SimpleMASignal: false})
-  return { ema20, ema50, rsi, macd }
+  return { ema20, ema50, rsi, macd, ema200 }
 }
 
 const _appendIndicatorValuesToList = ({list, rsi, macd, ema50}) => {
@@ -71,6 +72,12 @@ const _appendIndicatorValuesToList = ({list, rsi, macd, ema50}) => {
   for (let i = 20; i < values.length; i++) {
     values[i].ema20 = ema20[ema20Counter]
     ema20Counter++
+  }
+  //ema200
+  let ema200Counter = 0
+  for (let i = 200; i < values.length; i++) {
+    values[i].ema200 = ema200[ema200Counter]
+    ema200Counter++
   }
   // rsi 14
   let rsiCounter = 0
@@ -100,8 +107,6 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
   const totalCurrentValue = unitsToBuy*mostRecentPriceData.price
   const takerFee = parseFloat(totalCurrentValue * wallet.takerFee)
 
-
-
   // limit to 1 order
   if (currentHoldings !== 0) {
     const unitsBought = currentHoldings.units
@@ -109,7 +114,8 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
     const stopLossPrice = currentHoldings.price * config.stopLossPercentage
     const totalSellValue = unitsBought*mostRecentPriceData.price
     const totalSellTakerFee = totalSellValue * wallet.takerFee
-    const result = config.takeProfitCondition({ currentHoldings: currentHoldings, currentPrice: mostRecentPriceData.price, ema50: mostRecentPriceData.ema50, ema20: mostRecentPriceData.ema20, alreadyCrossedEma50: greenyState.states.alreadyCrossedEma50, config})
+
+    const result = config.takeProfitCondition({ currentHoldings: currentHoldings, currentPrice: mostRecentPriceData.price, rsi: mostRecentPriceData.rsi, ema50: mostRecentPriceData.ema50, ema20: mostRecentPriceData.ema20, alreadyCrossedEma50: greenyState.states.alreadyCrossedEma50, config})
     greenyState.states.alreadyCrossedEma50 = result.alreadyCrossedEma50
 
     console.log('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
@@ -178,7 +184,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
       greenyLogs('Current P/L: ' + profitLossValue)
       greenyLogs('TakerFee: ' + totalSellTakerFee)
       greenyLogs('>>>>>>>>>>>>>>>>>>>>> END <<<<<<<<<<<<<<<<<<<<<')
-
+      greenyState.states.alreadyCrossedEma50 = false
       decision = 'SELL'
     } else if (result.signal) {
       console.log('@@@@@@@@ SOLD @@@@@@@@@')
@@ -198,7 +204,7 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
     return {decision, currentPrice: mostRecentPriceData.price, profitLoss: profitLossValue, units: unitsBought, totalValue: totalSellValue, time: mostRecentTime, hitSL: mostRecentPriceData.price <= stopLossPrice, takerFee: totalSellTakerFee}
   }
   // BUY LOGIC
-  const buyCondition = config.buyCondition({ alreadyTouchedRSIThreshold: greenyState.states.alreadyTouchedRSIThreshold, config, emaTarget, macdSlice, mostRecentPriceData, mostRecentTime})
+  const buyCondition = config.buyCondition({ alreadyTouchedRSIThreshold: greenyState.states.alreadyTouchedRSIThreshold, config, emaTarget, macdSlice, mostRecentPriceData, mostRecentTime, ema200: mostRecentPriceData.ema200})
   greenyState.states.alreadyTouchedRSIThreshold = buyCondition.alreadyTouchedRSIThreshold
   if (buyCondition.signal) {
     console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ BUY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')

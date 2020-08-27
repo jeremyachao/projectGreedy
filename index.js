@@ -14,9 +14,7 @@ const Binance = require('binance-api-node').default
 */
 
 // HIGH PRIORITY
-// @TODO: try only use binance api
-// @TODO: trade BTC/USDT
-// @TODO: take into account maker fees when calculating P/L and TP
+// use ema200 to trade less shit
 // @TODO: figure out buy sell system because it takes away 0.01 QUANTITY when BUY and SELL
 
 // LOW PRIORITY
@@ -218,7 +216,7 @@ const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionT
   }, 1000)
 }
 
-const _getHistoricRates = async ({clientMethod, strategyPreprocessing, instrument, periodTesting=false, startEnd=false}) => {
+const _getHistoricRates = async ({clientMethod, strategyPreprocessing, instrument, startEnd=false}) => {
   let historicRates = { price: [], priceWithIndicators: []}
   const rates = startEnd ? await clientMethod({symbol: instrument, startTime: startEnd.start, endTime: startEnd.end, interval: '1m' }) : await clientMethod({symbol: instrument, interval: '1m'})
   // [ 0: oldest,  length-1: newest ]
@@ -265,9 +263,11 @@ const main = async () => {
     end: Date.parse('2020-08-27T17:00:00+0100')
   }
   const strategy = { strategy: strategies.greenyNotGreedy, strategyPreprocessing: strategies.greenyPreprocessing }
-  const historicRates = await _getHistoricRates({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT, startEnd: false, periodTesting: false})
-  _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategy.strategy})
+  // const historicRates = await _getHistoricRates({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT, startEnd: false})
+  const historicRatesPeriodTest = await _getHistoricRatesPeriodTest({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT})
+  _feedThroughTestEnvironment({historicRates: historicRatesPeriodTest, sessionTransactions, wallet, strategy: strategy.strategy})
   // _feedThroughWebSocket({client: binanceClient, websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy, instrument: config.BINANCE_INSTRUMENT})
+
 
 
   // Shutdown process
@@ -291,6 +291,42 @@ const main = async () => {
 
 }
 
+const _getHistoricRatesPeriodTest = async ({clientMethod, strategyPreprocessing, instrument}) => {
+  let historicRates = { price: [], priceWithIndicators: []}
+  let counter = 0
+
+  let startDate = 25
+  const testingPeriod = [
+    { start: Date.parse(`2020-08-${startDate}T00:00:00+0100`) , end: Date.parse(`2020-08-${startDate}T03:59:00+0100`)},
+    { start: Date.parse(`2020-08-${startDate}T04:00:00+0100`) , end: Date.parse(`2020-08-${startDate}T07:59:00+0100`)},
+    { start: Date.parse(`2020-08-${startDate}T08:00:00+0100`) , end: Date.parse(`2020-08-${startDate}T11:59:00+0100`)},
+    { start: Date.parse(`2020-08-${startDate}T12:00:00+0100`) , end: Date.parse(`2020-08-${startDate}T15:59:00+0100`)},
+    { start: Date.parse(`2020-08-${startDate}T16:00:00+0100`) , end: Date.parse(`2020-08-${startDate}T19:59:00+0100`)},
+    { start: Date.parse(`2020-08-${startDate}T20:00:00+0100`) , end: Date.parse(`2020-08-${startDate}T23:59:00+0100`)},
+  ]
+
+  let rates = []
+
+  for (period of testingPeriod) {
+    console.log('@@@@ BUILDING DATASET...... @@@@')
+    console.log(testingPeriod[counter])
+    const tmp = await clientMethod({symbol: instrument, startTime: testingPeriod[counter].start, endTime: testingPeriod[counter].end, interval: '5m' })
+    rates = rates.concat(tmp)
+    counter++
+    console.log(rates.length)
+  }
+  console.log('Done...')
+
+  // [ 0: oldest,  length-1: newest ]
+  for (const candle of rates) {
+    historicRates.price.push(parseFloat(candle.close))
+    historicRates.priceWithIndicators.push({ price: parseFloat(candle.close), time: candle.closeTime})
+  }
+
+  return strategyPreprocessing ? strategyPreprocessing(historicRates) : historicRates
+
+}
+
 // const coinbaseClient = new CoinbasePro.AuthenticatedClient(
 //   config.COINBASE_API_KEY,
 //   config.COINBASE_SECRET,
@@ -310,60 +346,9 @@ const main = async () => {
 // )
 
 // --------------------------
-// let startDate = 26
-// const testingPeriod = [
-//   { start: `2020-08-${startDate-1}T17:30:00+0000` , end: `2020-08-${startDate-1}T21:30:00+0000`},
-//   { start: `2020-08-${startDate-1}T21:30:00+0000` , end: `2020-08-${startDate}T00:30:00+0000`},
-//   { start: `2020-08-${startDate}T00:30:00+0000` , end: `2020-08-${startDate}T04:30:00+0000`},
-//   { start: `2020-08-${startDate}T04:30:00+0000` , end: `2020-08-${startDate}T08:30:00+0000`},
-  // { start: `2020-08-${startDate}T12:00:00+0000` , end: `2020-08-${startDate}T16:00:00+0000`},
-  // { start: `2020-08-${startDate}T16:00:00+0000` , end: `2020-08-${startDate}T20:00:00+0000`},
-  // { start: `2020-08-${startDate}T20:00:00+0000` , end: `2020-08-${startDate+1}T00:00:00+0000`},
 
-  // { start: `2020-08-${startDate+1}T00:00:00+0000` , end: `2020-08-${startDate+1}T04:00:00+0000`},
-  // { start: `2020-08-${startDate+1}T04:00:00+0000` , end: `2020-08-${startDate+1}T08:00:00+0000`},
-  // { start: `2020-08-${startDate+1}T08:00:00+0000` , end: `2020-08-${startDate+1}T12:00:00+0000`},
-  // { start: `2020-08-${startDate+1}T12:00:00+0000` , end: `2020-08-${startDate+1}T16:00:00+0000`},
-  // { start: `2020-08-${startDate+1}T16:00:00+0000` , end: `2020-08-${startDate+1}T20:00:00+0000`},
-  // { start: `2020-08-${startDate+1}T20:00:00+0000` , end: `2020-08-${startDate+2}T00:00:00+0000`},
-  //
-  // { start: `2020-08-${startDate+2}T00:00:00+0000` , end: `2020-08-${startDate+2}T04:00:00+0000`},
-  // { start: `2020-08-${startDate+2}T04:00:00+0000` , end: `2020-08-${startDate+2}T08:00:00+0000`},
-  // { start: `2020-08-${startDate+2}T08:00:00+0000` , end: `2020-08-${startDate+2}T12:00:00+0000`},
-  // { start: `2020-08-${startDate+2}T12:00:00+0000` , end: `2020-08-${startDate+2}T16:00:00+0000`},
-  // { start: `2020-08-${startDate+2}T16:00:00+0000` , end: `2020-08-${startDate+2}T20:00:00+0000`},
-  // { start: `2020-08-${startDate+2}T20:00:00+0000` , end: `2020-08-${startDate+3}T00:00:00+0000`},
-  //
-  // { start: `2020-08-${startDate+3}T00:00:00+0000` , end: `2020-08-${startDate+3}T04:00:00+0000`},
-  // { start: `2020-08-${startDate+3}T04:00:00+0000` , end: `2020-08-${startDate+3}T08:00:00+0000`},
-  // { start: `2020-08-${startDate+3}T08:00:00+0000` , end: `2020-08-${startDate+3}T12:00:00+0000`},
-  // { start: `2020-08-${startDate+3}T12:00:00+0000` , end: `2020-08-${startDate+3}T16:00:00+0000`},
-  // { start: `2020-08-${startDate+3}T16:00:00+0000` , end: `2020-08-${startDate+3}T20:00:00+0000`},
-  // { start: `2020-08-${startDate+3}T20:00:00+0000` , end: `2020-08-${startDate+4}T00:00:00+0000`},
-  //
-  // { start: `2020-08-${startDate+4}T00:00:00+0000` , end: `2020-08-${startDate+4}T04:00:00+0000`},
-  // { start: `2020-08-${startDate+4}T04:00:00+0000` , end: `2020-08-${startDate+4}T08:00:00+0000`},
-  // { start: `2020-08-${startDate+4}T08:00:00+0000` , end: `2020-08-${startDate+4}T12:00:00+0000`},
-  // { start: `2020-08-${startDate+4}T12:00:00+0000` , end: `2020-08-${startDate+4}T16:00:00+0000`},
-  // { start: `2020-08-${startDate+4}T16:00:00+0000` , end: `2020-08-${startDate+4}T20:00:00+0000`},
-  // { start: `2020-08-${startDate+4}T20:00:00+0000` , end: `2020-08-${startDate+5}T00:00:00+0000`},
-// ]
-// let counter = 0
 // let historicRates = { price: [], priceWithIndicators: []}
-// const testEnv = setInterval(async ()=> {
-//   if (counter < testingPeriod.length) {
-//     console.log('@@@@ BUILDING DATASET...... @@@@')
-//     console.log(testingPeriod[counter])
-//     console.log(historicRates.priceWithIndicators.length)
-//     historicRates = await _getHistoricRates({ client: coinbaseClient, strategyPreprocessing: strategies.greenyPreprocessing, startEnd: testingPeriod[counter], instrument: config.COINBASE_INSTRUMENT, periodTesting: historicRates})
-//     counter++
-//   } else {
-//     console.log('clearing...')
-//     clearInterval(testEnv)
-//     console.log('cleared')
-//     _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy})
-//   }
-// }, 1500)
+
 
 // --------------------------
 

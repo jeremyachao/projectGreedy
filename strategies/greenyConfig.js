@@ -15,7 +15,7 @@ exports.greeny = {
   // stage 4 'MACD closing' - takes <macdPriceLookupPeriod> period(s) and then uses <divergenceDistance> to
   // calulate whether or not MACD is closing
   // <macdConvergenceThreshold> the minimum distance between max histogram value and current histogram value
-  macdConvergenceThreshold: 0.9995,
+  macdConvergenceThreshold: 0.999,
   // <macdSignalCrossedThreshold> how far away from signal line can macd be before considering it a good buy
   macdSignalCrossedThreshold: 1.2,
   // <macdPriceLookupPeriod> the amount of periods to find a max macd to get a V shape close
@@ -25,9 +25,14 @@ exports.greeny = {
   // P/L settings
   stopLossPercentage: 0.99,
   // 1 = 100% of money to use per trade
-  percentageToUsePerTrade: 1,
+  percentageToUsePerTrade: 0.2,
 
-  buyCondition: ({mostRecentPriceData, emaTarget, alreadyTouchedRSIThreshold, config, macdSlice, mostRecentTime}) => {
+  buyCondition: ({mostRecentPriceData, emaTarget, alreadyTouchedRSIThreshold, config, macdSlice, mostRecentTime, ema200}) => {
+    if (mostRecentPriceData.price <= ema200) {
+      console.log('Under EMA200 not trading...')
+      greenyLogs('Under EMA200 not trading...')
+      return {signal: false, alreadyTouchedRSIThreshold: false }
+    }
     if (mostRecentPriceData.price < emaTarget) {
       if (alreadyTouchedRSIThreshold) {
         console.log('Bounced off RSI threshold already')
@@ -93,18 +98,22 @@ exports.greeny = {
       return { signal: false, alreadyTouchedRSIThreshold: false }
     }
   },
-  takeProfitCondition: ({currentHoldings, currentPrice, ema50, ema20, alreadyCrossedEma50, config}) => {
+  takeProfitCondition: ({rsi, currentHoldings, currentPrice, ema50, ema20, alreadyCrossedEma50, config}) => {
     // return currentPrice >= ema50 ? { signal: true } : { signal: false }
     if (alreadyCrossedEma50) {
       // Crossed EMA 50
       greenyLogs('@@@@@@@@ POTENTIAL SELL @@@@@@@@@@')
       console.log('@@@@@@@@ POTENTIAL SELL @@@@@@@@@@')
-      // if (currentPrice <= (ema50*config.emaModifier) && currentPrice >= currentHoldings.price && (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
-      //   // Sell if it crosses back down before crossing ema20
-      //   greenyLogs('Crossing back down on ema50 before crossing up on ema20')
-      //   console.log('Crossing back down on ema50 before crossing up on ema20')
-      //   return { signal: true, alreadyCrossedEma50: false }
-      // }
+      if (rsi > 65 && currentPrice >= currentHoldings.price && (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
+        greenyLogs('Profitable RSI 65+')
+        console.log('Profitable RSI 65+')
+        return { signal: true, alreadyCrossedEma50: false }
+      }
+      if (currentPrice < ema50 && currentPrice >= currentHoldings.price && (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
+        greenyLogs('Profitable crossing down onto ema 50')
+        console.log('Profitable crossing down onto ema 50')
+        return { signal: true, alreadyCrossedEma50: false }
+      }
       if ((ema20*config.ema20Above50Modifier) >= ema50) {
         greenyLogs('Ema20 Crossing up on ema50')
         console.log('Ema20 Crossing up on ema50')
