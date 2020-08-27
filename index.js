@@ -1,8 +1,6 @@
-const CoinbasePro = require('coinbase-pro')
 const config = require('./config')
 const strategies = require('./strategies')
 const fs = require('fs');
-const Shrimpy = require('shrimpy-node');
 const Binance = require('binance-api-node').default
 
 
