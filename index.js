@@ -84,7 +84,10 @@ const _displayEndMessage = (sessionTransactions) => {
   console.log('----------------------------------------------')
   console.log('PROFIT/LOSS: ' + profitLoss)
   console.log('TOTAL TAKER FEE: ' + totalTakerFee)
+  console.log('PROFIT/LOSS % ON TOTAL SPENT : ' + ((profitLoss/totalBuy)*100))
+  console.log('TAKER FEE % ON TOTAL SPENT: ' + ((totalTakerFee/totalBuy)*100))
   console.log('TAKER FEE AS % OF P/L: ' + (Math.abs((totalTakerFee/profitLoss)*100)))
+  console.log('----------------------------------------------')
   console.log('NET PROFIT LOSS: ' + (profitLoss - totalTakerFee))
   console.log('----------------------------------------------')
   console.log('TOTAL BOUGHT: ' + totalBuy)
@@ -102,8 +105,8 @@ const _displayEndMessage = (sessionTransactions) => {
   console.log('SAVED TO: ' + fileName)
 }
 
-const _executeBuy = (currentPrice, units, time, takerFee) => {
-  return { time: time, msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: units*currentPrice, units: units, takerFee}
+const _executeBuy = (currentPrice, units, time, takerFee, totalValue) => {
+  return { time: time, msg: 'BOUGHT ' + units +  ' UNITS AT: ' + currentPrice, price: currentPrice, action: 'BUY', totalValue: totalValue, units: units, takerFee}
 }
 
 const _executeSell = (currentPrice, profitLoss, units, totalValue, time, hitSL, takerFee) => {
@@ -125,16 +128,6 @@ const _implementStrategy = ({ historicRates, currentHoldings, strategy, tickerDa
   // executes strategy
   const strategyExecutionResult = strategy({historicRates, currentHoldings, wallet, tickerData})
 
-  const _getLastStatus = ({currentPrice, decision, profitLoss, units, totalValue, time, hitSL, takerFee}) => {
-    const states = {
-      'BUY': _executeBuy(currentPrice, units, time, takerFee),
-      'SELL': _executeSell(currentPrice, profitLoss, units, totalValue, time, hitSL, takerFee),
-      'HOLD': _executeHold(currentPrice),
-      'NONE': _noCurrentTransactions(),
-    }
-    return states[decision]
-  }
-
   const lastStatus = _getLastStatus(strategyExecutionResult)
   // Keeps track of open positions
   if (lastStatus.action === 'BUY' || lastStatus.action === 'SELL') {
@@ -147,6 +140,16 @@ const _implementStrategy = ({ historicRates, currentHoldings, strategy, tickerDa
     }
   }
   return {currentHoldings, decision: strategyExecutionResult}
+}
+
+const _getLastStatus = ({currentPrice, decision, profitLoss, units, totalValue, time, hitSL, takerFee}) => {
+  const states = {
+    'BUY': _executeBuy(currentPrice, units, time, takerFee, totalValue),
+    'SELL': _executeSell(currentPrice, profitLoss, units, totalValue, time, hitSL, takerFee),
+    'HOLD': _executeHold(currentPrice),
+    'NONE': _noCurrentTransactions(),
+  }
+  return states[decision]
 }
 
 

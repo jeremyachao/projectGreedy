@@ -201,6 +201,10 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
   const buyCondition = config.buyCondition({ alreadyTouchedRSIThreshold: greenyState.states.alreadyTouchedRSIThreshold, config, emaTarget, macdSlice, mostRecentPriceData, mostRecentTime})
   greenyState.states.alreadyTouchedRSIThreshold = buyCondition.alreadyTouchedRSIThreshold
   if (buyCondition.signal) {
+    console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ BUY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+    console.log('Bought at price: ' + mostRecentPriceData.price)
+    console.log('>>>>>>>>>>>>>>>>>>>>> BOUGHT END <<<<<<<<<<<<<<<<<<<<<')
+
     greenyLogs('@@@@@@@@ BOUGHT @@@@@@@@@')
     greenyLogs('Bought at price: ' + mostRecentPriceData.price)
     greenyLogs('>>>>>>>>>>>>>>>>>>>>> BOUGHT END <<<<<<<<<<<<<<<<<<<<<')
@@ -259,5 +263,5 @@ const _analyse = (config, priceData, currentHoldings, wallet) => {
   greenyLogs('MACD signal crossed threshold: ' + (config.macdSignalCrossedThreshold*mostRecentPriceData.macd.signal))
   greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
 
-  return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A', units: unitsToBuy, time: mostRecentTime, takerFee: takerFee}
+  return {decision, currentPrice: mostRecentPriceData.price, profitLoss: 'N/A', units: unitsToBuy, time: mostRecentTime, takerFee: takerFee, totalValue: totalCurrentValue}
 }

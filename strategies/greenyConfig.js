@@ -23,7 +23,7 @@ exports.greeny = {
   // <divergenceDistance> the location to look for a max macd within the lookup period
   divergenceDistance: (macdPriceLookupPeriod) => { return Math.floor(macdPriceLookupPeriod / 2) },
   // P/L settings
-  stopLossPercentage: 0.995,
+  stopLossPercentage: 0.998,
   // 1 = 100% of money to use per trade
   percentageToUsePerTrade: 1,
   buyCondition: ({mostRecentPriceData, emaTarget, alreadyTouchedRSIThreshold, config, macdSlice, mostRecentTime}) => {
@@ -68,8 +68,6 @@ exports.greeny = {
             console.log('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
 
             if (mostRecentPriceData.macd.MACD >= (mostRecentPriceData.macd.signal*config.macdSignalCrossedThreshold)) {
-              console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ BUY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
-              greenyLogs('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ BUY @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
               return { signal: true, alreadyTouchedRSIThreshold: false }
             } else {
               return { signal: false, alreadyTouchedRSIThreshold: true }
