@@ -84,7 +84,7 @@ const _displayEndMessage = (sessionTransactions) => {
   console.log('----------------------------------------------')
   console.log('PROFIT/LOSS: ' + profitLoss)
   console.log('TOTAL TAKER FEE: ' + totalTakerFee)
-  console.log('PROFIT/LOSS % ON TOTAL SPENT : ' + ((Math.abs(profitLoss)/totalBuy)*100))
+  console.log('PROFIT/LOSS % ON TOTAL SPENT : ' + ((profitLoss/totalBuy)*100))
   console.log('TAKER FEE % ON TOTAL SPENT: ' + ((totalTakerFee/totalBuy)*100))
   console.log('TAKER FEE AS % OF P/L: ' + (Math.abs((totalTakerFee/profitLoss)*100)))
   console.log('----------------------------------------------')
@@ -220,7 +220,7 @@ const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionT
 
 const _getHistoricRates = async ({clientMethod, strategyPreprocessing, instrument, periodTesting=false, startEnd=false}) => {
   let historicRates = { price: [], priceWithIndicators: []}
-  const rates = startEnd ? await clientMethod({symbol: instrument, start: startEnd.start, end: startEnd.end, interval: '1m' }) : await clientMethod({symbol: instrument, interval: '1m'})
+  const rates = startEnd ? await clientMethod({symbol: instrument, startTime: startEnd.start, endTime: startEnd.end, interval: '1m' }) : await clientMethod({symbol: instrument, interval: '1m'})
   // [ 0: oldest,  length-1: newest ]
   for (const candle of rates) {
     historicRates.price.push(parseFloat(candle.close))
@@ -259,10 +259,11 @@ const main = async () => {
   const wallet = await _getAvailableBalance({client: binanceClient, instrument: config.BINANCE_INSTRUMENT})
   console.log(wallet)
 
-  // const startEnd = {
-  //   start: '2020-08-25T21:30:00+0000',
-  //   end: '2020-08-21T00:30:00+0000'
-  // }
+  // starts 1 hr after start
+  const startEnd = {
+    start: Date.parse('2020-08-27T09:00:00+0100'),
+    end: Date.parse('2020-08-27T17:00:00+0100')
+  }
   const strategy = { strategy: strategies.greenyNotGreedy, strategyPreprocessing: strategies.greenyPreprocessing }
   const historicRates = await _getHistoricRates({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT, startEnd: false, periodTesting: false})
   _feedThroughTestEnvironment({historicRates, sessionTransactions, wallet, strategy: strategy.strategy})

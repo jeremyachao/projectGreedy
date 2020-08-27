@@ -7,7 +7,7 @@ exports.greeny = {
   // <ema20Above50Modifier> how much over ema20 should be over ema50 before TP
   ema20Above50Modifier: 0.9995,
   // <ema20TPModifier> how much above ema20 to tp
-  ema20TPModifier: 1.05,
+  ema20TPModifier: 1,
   // stage 2 'Price RSI < <rsiThreshold>'
   rsiThreshold: 35,
   // stage 3 'MACD less than <minimumMACDLevel>'
@@ -99,16 +99,16 @@ exports.greeny = {
       // Crossed EMA 50
       greenyLogs('@@@@@@@@ POTENTIAL SELL @@@@@@@@@@')
       console.log('@@@@@@@@ POTENTIAL SELL @@@@@@@@@@')
-      if (currentPrice <= (ema50*config.emaModifier) && currentPrice >= currentHoldings.price) {
-        // Sell if it crosses back down before crossing ema20
-        greenyLogs('Crossing back down on ema50 before crossing up on ema20')
-        console.log('Crossing back down on ema50 before crossing up on ema20')
-        return { signal: true, alreadyCrossedEma50: false }
-      }
+      // if (currentPrice <= (ema50*config.emaModifier) && currentPrice >= currentHoldings.price && (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
+      //   // Sell if it crosses back down before crossing ema20
+      //   greenyLogs('Crossing back down on ema50 before crossing up on ema20')
+      //   console.log('Crossing back down on ema50 before crossing up on ema20')
+      //   return { signal: true, alreadyCrossedEma50: false }
+      // }
       if ((ema20*config.ema20Above50Modifier) >= ema50) {
         greenyLogs('Ema20 Crossing up on ema50')
         console.log('Ema20 Crossing up on ema50')
-        if (currentPrice <= (ema20*config.ema20TPModifier) && currentPrice > currentHoldings.price) {
+        if (currentPrice <= (ema20*config.ema20TPModifier) && currentPrice > currentHoldings.price && (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
           greenyLogs('Current price > ema20 and ema20 > ema50')
           greenyLogs('congrats!')
           console.log('Current price > ema20 and ema20 > ema50')
