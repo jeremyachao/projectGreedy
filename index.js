@@ -327,58 +327,5 @@ const _getHistoricRatesPeriodTest = async ({clientMethod, strategyPreprocessing,
 
 }
 
-// const coinbaseClient = new CoinbasePro.AuthenticatedClient(
-//   config.COINBASE_API_KEY,
-//   config.COINBASE_SECRET,
-//   config.COINBASE_PASSPHRASE,
-//   config.COINBASE_API_URI
-// )
-
-// const websocket = new CoinbasePro.WebsocketClient(
-//   [config.COINBASE_INSTRUMENT],
-//   config.COINBASE_WSS,
-//   {
-//     key: config.COINBASE_API_KEY,
-//     secret: config.COINBASE_SECRET,
-//     passphrase: config.COINBASE_PASSPHRASE,
-//   },
-//   { channels: ['ticker'] }
-// )
-
-// --------------------------
-
-// let historicRates = { price: [], priceWithIndicators: []}
-
-
-// --------------------------
-
-// if (periodTesting) {
-//   const rates = await client.getProductHistoricRates(instrument, options)
-//   const tempPrice = []
-//   const tempPriceWithIndicators = []
-//   for (const candle of rates) {
-//     tempPrice.unshift(candle[4])
-//     tempPriceWithIndicators.unshift({ price: candle[4], time: candle[0]})
-//   }
-//   const mergedPrice = periodTesting.price.concat(tempPrice)
-//   const mergedPriceWithIndicators = periodTesting.priceWithIndicators.concat(tempPriceWithIndicators)
-//   periodTesting.price = mergedPrice
-//   periodTesting.priceWithIndicators = mergedPriceWithIndicators
-//
-//   console.log(periodTesting.priceWithIndicators[0])
-//   console.log('@@ COMPLETED @@')
-//   console.log(periodTesting.priceWithIndicators[periodTesting.priceWithIndicators.length -1])
-//
-//   if (periodTesting.priceWithIndicators.length > 300) {
-//     console.log('@@@ STARTING GREENY PREPROCESSING @@@')
-//     console.log(periodTesting.priceWithIndicators.length)
-//     data = strategyPreprocessing(periodTesting)
-//     console.log(data.priceWithIndicators[0])
-//     console.log(data.priceWithIndicators[data.priceWithIndicators.length - 1])
-//     return data
-//   }
-//   return periodTesting
-// }
-
 
 (async ()=> { main() })()
