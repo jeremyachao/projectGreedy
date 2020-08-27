@@ -84,11 +84,12 @@ const _displayEndMessage = (sessionTransactions) => {
   console.log('----------------------------------------------')
   console.log('PROFIT/LOSS: ' + profitLoss)
   console.log('TOTAL TAKER FEE: ' + totalTakerFee)
-  console.log('PROFIT/LOSS % ON TOTAL SPENT : ' + ((profitLoss/totalBuy)*100))
+  console.log('PROFIT/LOSS % ON TOTAL SPENT : ' + ((Math.abs(profitLoss)/totalBuy)*100))
   console.log('TAKER FEE % ON TOTAL SPENT: ' + ((totalTakerFee/totalBuy)*100))
   console.log('TAKER FEE AS % OF P/L: ' + (Math.abs((totalTakerFee/profitLoss)*100)))
   console.log('----------------------------------------------')
   console.log('NET PROFIT LOSS: ' + (profitLoss - totalTakerFee))
+  console.log('NET PROFIT LOSS %: ' + ((profitLoss - totalTakerFee)/totalBuy)*100)
   console.log('----------------------------------------------')
   console.log('TOTAL BOUGHT: ' + totalBuy)
   console.log('TOTAL SOLD: ' + totalSell)
@@ -237,7 +238,7 @@ const _getAvailableBalance = async ({client, instrument}) => {
   for (const bal of balances.balances) {
     if (bal.asset === instrument.substring(3, 7)) {
       console.log(bal)
-      amountAvailable = bal.free*10000
+      amountAvailable = bal.free*100
     }
   }
   const fees = await client.tradeFee()

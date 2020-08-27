@@ -3,7 +3,7 @@ exports.greeny = {
   // stage 1 'Price under ema by atleast <crossedEmaThreshold>%'
   crossedEmaThreshold: 0.99995,
   // <emaModifier> used to counteract minor calculation error of ema
-  emaModifier: 0.9998,
+  emaModifier: 1, // 0.9998
   // <ema20Above50Modifier> how much over ema20 should be over ema50 before TP
   ema20Above50Modifier: 0.9995,
   // <ema20TPModifier> how much above ema20 to tp
@@ -23,9 +23,10 @@ exports.greeny = {
   // <divergenceDistance> the location to look for a max macd within the lookup period
   divergenceDistance: (macdPriceLookupPeriod) => { return Math.floor(macdPriceLookupPeriod / 2) },
   // P/L settings
-  stopLossPercentage: 0.998,
+  stopLossPercentage: 0.99,
   // 1 = 100% of money to use per trade
   percentageToUsePerTrade: 1,
+
   buyCondition: ({mostRecentPriceData, emaTarget, alreadyTouchedRSIThreshold, config, macdSlice, mostRecentTime}) => {
     if (mostRecentPriceData.price < emaTarget) {
       if (alreadyTouchedRSIThreshold) {
