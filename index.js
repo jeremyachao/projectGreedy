@@ -12,16 +12,10 @@ const Binance = require('binance-api-node').default
 */
 
 // HIGH PRIORITY
-// use ema200 to trade less shit
-// @TODO: figure out buy sell system because it takes away 0.01 QUANTITY when BUY and SELL
+// @TODO: add or remove funds to available amount after each trade for P/L
 
 // LOW PRIORITY
-// @TODO: implement get any active holdings from coinbase
-// @TODO: use actual ask and bid to calculate profits
-// TODO: clean candle of rates loop up, no need time and maybe no need to declare indicators there
-
-
-
+// @TODO: implement get any active holdings from binance
 
 const _displayEndMessage = (sessionTransactions) => {
   let totalBuy = 0
@@ -192,14 +186,14 @@ const _feedThroughTestEnvironment = ({historicRates, sessionTransactions, wallet
 
 // not exactly synced up to real time seconds, it probably will gradually slip
 const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionTransactions, wallet, strategy, instrument}) => {
-  let period = 60
+  let period = config.TIME_PERIOD_SECONDS
   let result = { decision: 'NONE', currentHoldings: 0}
-
-  let counter = (period - new Date().getSeconds())
+  const minutesLeftIn5m = (((Math.ceil(new Date().getMinutes()/(period/60)))*(period/60))-new Date().getMinutes())
+  let counter = (minutesLeftIn5m*60) - new Date().getSeconds()
   const interval = setInterval(async () => {
     console.log(counter)
     if (counter === 0) {
-      const currentCandle = await client.candles({ symbol: config.BINANCE_INSTRUMENT, limit: 1, interval: '1m' })
+      const currentCandle = await client.candles({ symbol: config.BINANCE_INSTRUMENT, limit: 1, interval: config.TIME_PERIOD })
       result = _implementStrategy({ sessionTransactions, currentHoldings: result.currentHoldings, historicRates, strategy, tickerData: { currentPrice: currentCandle[0].close, time: new Date(currentCandle[0].closeTime) }, wallet })
       console.log(result)
       if (result.decision.decision === 'BUY') {
@@ -216,7 +210,7 @@ const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionT
 
 const _getHistoricRates = async ({clientMethod, strategyPreprocessing, instrument, startEnd=false}) => {
   let historicRates = { price: [], priceWithIndicators: []}
-  const rates = startEnd ? await clientMethod({symbol: instrument, startTime: startEnd.start, endTime: startEnd.end, interval: '1m' }) : await clientMethod({symbol: instrument, interval: '1m'})
+  const rates = startEnd ? await clientMethod({symbol: instrument, startTime: startEnd.start, endTime: startEnd.end, interval: config.TIME_PERIOD }) : await clientMethod({symbol: instrument, interval: config.TIME_PERIOD})
   // [ 0: oldest,  length-1: newest ]
   for (const candle of rates) {
     historicRates.price.push(parseFloat(candle.close))
@@ -261,10 +255,11 @@ const main = async () => {
     end: Date.parse('2020-08-27T17:00:00+0100')
   }
   const strategy = { strategy: strategies.greenyNotGreedy, strategyPreprocessing: strategies.greenyPreprocessing }
-  // const historicRates = await _getHistoricRates({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT, startEnd: false})
-  const historicRatesPeriodTest = await _getHistoricRatesPeriodTest({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT})
-  _feedThroughTestEnvironment({historicRates: historicRatesPeriodTest, sessionTransactions, wallet, strategy: strategy.strategy})
-  // _feedThroughWebSocket({client: binanceClient, websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy, instrument: config.BINANCE_INSTRUMENT})
+  const historicRates = await _getHistoricRates({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT, startEnd: false})
+  _feedThroughWebSocket({client: binanceClient, websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy, instrument: config.BINANCE_INSTRUMENT})
+
+  // const historicRatesPeriodTest = await _getHistoricRatesPeriodTest({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT})
+  // _feedThroughTestEnvironment({historicRates: historicRatesPeriodTest, sessionTransactions, wallet, strategy: strategy.strategy})
 
 
 
@@ -308,7 +303,7 @@ const _getHistoricRatesPeriodTest = async ({clientMethod, strategyPreprocessing,
   for (period of testingPeriod) {
     console.log('@@@@ BUILDING DATASET...... @@@@')
     console.log(testingPeriod[counter])
-    const tmp = await clientMethod({symbol: instrument, startTime: testingPeriod[counter].start, endTime: testingPeriod[counter].end, interval: '5m' })
+    const tmp = await clientMethod({symbol: instrument, startTime: testingPeriod[counter].start, endTime: testingPeriod[counter].end, interval: config.TIME_PERIOD })
     rates = rates.concat(tmp)
     counter++
     console.log(rates.length)

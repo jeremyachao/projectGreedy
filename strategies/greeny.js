@@ -20,9 +20,9 @@ const greenyState = require('./greenyState')
 exports.greenyPreprocessing = (data) => {
   const greenyReadyData = data
   const greenyIndicators = _calculateIndicators(greenyReadyData.price)
-  const appendedRates = _appendIndicatorValuesToList({ list: data.priceWithIndicators, ema20: greenyIndicators.ema20, ema50: greenyIndicators.ema50, rsi: greenyIndicators.rsi, macd: greenyIndicators.macd, ema200: greenyIndicators.ema200})
+  const appendedRates = _appendIndicatorValuesToList({ list: greenyReadyData.priceWithIndicators, ema1: greenyIndicators.ema1, ema2: greenyIndicators.ema2, rsi: greenyIndicators.rsi, macd: greenyIndicators.macd, ema3: greenyIndicators.ema3})
   greenyReadyData.priceWithIndicators = appendedRates
-  return data
+  return greenyReadyData
 }
 
 exports.greenyNotgreedy = ({historicRates, currentHoldings, wallet, tickerData}) => {
@@ -37,8 +37,9 @@ exports.greenyNotgreedy = ({historicRates, currentHoldings, wallet, tickerData})
     time: tickerData.time,
     rsi: greenyIndicators.rsi[rsi.length-1],
     macd: greenyIndicators.macd[macd.length -1],
-    ema50: greenyIndicators.ema50[ema50.length -1],
-    ema20: greenyIndicators.ema20[ema20.length -1],
+    ema50: greenyIndicators.ema2[ema2.length -1],
+    ema20: greenyIndicators.ema1[ema1.length -1],
+    ema200: greenyIndicators.ema3[ema3.length -1]
   }
 
   historicRates.priceWithIndicators.push(priceObject)
@@ -51,43 +52,44 @@ exports.greenyNotgreedy = ({historicRates, currentHoldings, wallet, tickerData})
 }
 
 const _calculateIndicators = (values) => {
-  ema50 = indicators.EMA.calculate({ period: 50, values})
-  ema20 = indicators.EMA.calculate({ period: 20, values})
-  ema200 = indicators.EMA.calculate({ period: 200, values})
-  rsi = indicators.RSI.calculate({values, period: 14})
-  macd = indicators.MACD.calculate({values, fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, SimpleMAOscillator: false, SimpleMASignal: false})
-  return { ema20, ema50, rsi, macd, ema200 }
+  ema1 = indicators.EMA.calculate({ period: config.ema1, values})
+  ema2 = indicators.EMA.calculate({ period: config.ema2, values})
+  ema3 = indicators.EMA.calculate({ period: config.ema3, values})
+  rsi = indicators.RSI.calculate({values, period: config.rsi})
+  macd = indicators.MACD.calculate({values, fastPeriod: config.macd.fast, slowPeriod: config.macd.slow, signalPeriod: config.macd.signalLength, SimpleMAOscillator: false, SimpleMASignal: false})
+  return { ema1, ema3, rsi, macd, ema2 }
 }
 
-const _appendIndicatorValuesToList = ({list, rsi, macd, ema50}) => {
+// calculates for ALL values right now :( every time
+const _appendIndicatorValuesToList = ({list, rsi, macd, ema1, ema2, ema3}) => {
   const values = list
-  // ema50
-  let emaCounter = 0
-  for (let i = 50; i < values.length; i++) {
-    values[i].ema50 = ema50[emaCounter]
-    emaCounter++
+  // ema1
+  let ema1Counter = 0
+  for (let i = config.ema1; i < values.length; i++) {
+    values[i].ema20 = ema1[ema1Counter]
+    ema1Counter++
   }
-  // ema20
-  let ema20Counter = 0
-  for (let i = 20; i < values.length; i++) {
-    values[i].ema20 = ema20[ema20Counter]
-    ema20Counter++
+  // ema2
+  let ema2Counter = 0
+  for (let i = config.ema2; i < values.length; i++) {
+    values[i].ema50 = ema2[ema2Counter]
+    ema2Counter++
   }
-  //ema200
-  let ema200Counter = 0
-  for (let i = 200; i < values.length; i++) {
-    values[i].ema200 = ema200[ema200Counter]
-    ema200Counter++
+  //ema3
+  let ema3Counter = 0
+  for (let i = config.ema3; i < values.length; i++) {
+    values[i].ema200 = ema3[ema3Counter]
+    ema3Counter++
   }
-  // rsi 14
+  // rsi
   let rsiCounter = 0
-  for (let i = 14; i < values.length; i++){
+  for (let i = config.rsi; i < values.length; i++){
     values[i].rsi = rsi[rsiCounter]
     rsiCounter++
   }
-  // macd 12 26 9
+  // macd
   let macdCounter = 0
-  for (let i = 26; i < values.length; i++){
+  for (let i = config.macd.slow; i < values.length; i++){
     values[i].macd = macd[macdCounter]
     macdCounter++
   }

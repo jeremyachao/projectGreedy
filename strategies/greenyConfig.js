@@ -1,5 +1,15 @@
 const greenyLogs = require('./greenyLogs')
 exports.greeny = {
+  // indicators and tools settings
+  ema1: 20,
+  ema2: 50,
+  ema3: 200,
+  rsi: 25,
+  macd: {
+    fast: 50,
+    slow: 100,
+    signalLength: 25,
+  },
   // stage 1 'Price under ema by atleast <crossedEmaThreshold>%'
   crossedEmaThreshold: 0.99995,
   // <emaModifier> used to counteract minor calculation error of ema
