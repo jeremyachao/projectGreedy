@@ -2,6 +2,7 @@ const config = require('./config')
 const strategies = require('./strategies')
 const fs = require('fs');
 const Binance = require('binance-api-node').default
+const transactionLogs = require('./transactionLogs')
 
 
 /*
@@ -206,6 +207,7 @@ const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionT
           quantity: config.BUY_QUANTITY,
           type: 'MARKET'
         })
+        transactionLogs(buyOrder)
         console.log(buyOrder)
       }
       if (result.decision.decision === 'SELL') {
@@ -216,6 +218,7 @@ const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionT
           quantity: config.BUY_QUANTITY - (config.BUY_QUANTITY * wallet.takerFee),
           type: 'MARKET'
         })
+        transactionLogs(sellOrder)
         console.log(sellOrder)
       }
       counter = period
