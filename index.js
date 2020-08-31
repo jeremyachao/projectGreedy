@@ -31,10 +31,10 @@ const _displayEndMessage = (sessionTransactions) => {
   let totalTakerFee = 0
   const fileName = './greeny-RESULTS'
 
-  // @TODO: remove
-  if (sessionTransactions[sessionTransactions.length -1].action === 'BUY') {
-    sessionTransactions.pop()
-  }
+  // // @TODO: remove
+  // if (sessionTransactions[sessionTransactions.length -1].action === 'BUY') {
+  //   sessionTransactions.pop()
+  // }
 
   for (const transaction of sessionTransactions) {
     fs.appendFileSync(fileName, JSON.stringify(transaction) + '\r\n')
@@ -190,17 +190,33 @@ const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionT
   let result = { decision: 'NONE', currentHoldings: 0}
   const minutesLeftIn5m = (((Math.ceil(new Date().getMinutes()/(period/60)))*(period/60))-new Date().getMinutes())
   let counter = (minutesLeftIn5m*60) - new Date().getSeconds()
+  let buyOrder
+  let sellOrder
+  // let counter = period - new Date().getSeconds()
   const interval = setInterval(async () => {
     console.log(counter)
     if (counter === 0) {
       const currentCandle = await client.candles({ symbol: config.BINANCE_INSTRUMENT, limit: 1, interval: config.TIME_PERIOD })
       result = _implementStrategy({ sessionTransactions, currentHoldings: result.currentHoldings, historicRates, strategy, tickerData: { currentPrice: currentCandle[0].close, time: new Date(currentCandle[0].closeTime) }, wallet })
-      console.log(result)
       if (result.decision.decision === 'BUY') {
-        console.log('MOCK BUY')
+        console.log('BUY IN')
+        buyOrder = await client.order({
+          symbol: config.BINANCE_INSTRUMENT,
+          side: 'BUY',
+          quantity: config.BUY_QUANTITY,
+          type: 'MARKET'
+        })
+        console.log(buyOrder)
       }
       if (result.decision.decision === 'SELL') {
-        console.log('MOCK SELL')
+        console.log('SELL OFF')
+        sellOrder = await client.order({
+          symbol: config.BINANCE_INSTRUMENT,
+          side: 'SELL',
+          quantity: config.BUY_QUANTITY - (config.BUY_QUANTITY * wallet.takerFee),
+          type: 'MARKET'
+        })
+        console.log(sellOrder)
       }
       counter = period
     }
@@ -228,7 +244,7 @@ const _getAvailableBalance = async ({client, instrument}) => {
   for (const bal of balances.balances) {
     if (bal.asset === instrument.substring(3, 7)) {
       console.log(bal)
-      amountAvailable = bal.free*100
+      amountAvailable = bal.free
     }
   }
   const fees = await client.tradeFee()
@@ -259,7 +275,7 @@ const main = async () => {
   _feedThroughWebSocket({client: binanceClient, websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy, instrument: config.BINANCE_INSTRUMENT})
 
   // const historicRatesPeriodTest = await _getHistoricRatesPeriodTest({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT})
-  // _feedThroughTestEnvironment({historicRates: historicRatesPeriodTest, sessionTransactions, wallet, strategy: strategy.strategy})
+  // _feedThroughTestEnvironment({ historicRates, sessionTransactions, wallet, strategy: strategy.strategy})
 
 
 
