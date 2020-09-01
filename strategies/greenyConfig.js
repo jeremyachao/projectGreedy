@@ -14,6 +14,8 @@ exports.greeny = {
   crossedEmaThreshold: 0.99995,
   // <emaModifier> used to counteract minor calculation error of ema
   emaModifier: 1, // 0.9998
+  // <ema50SLThreshold> acts as a trailing stop loss
+  ema50SLThreshold: 0.997,
   // <ema20Above50Modifier> how much over ema20 should be over ema50 before TP
   ema20Above50Modifier: 0.9995,
   // <ema20TPModifier> how much above ema20 to tp
@@ -21,7 +23,7 @@ exports.greeny = {
   // stage 2 'Price RSI < <rsiThreshold>'
   rsiThreshold: 35,
   // <rsiBuyInThreshold> only buys in if rsi is lower than this
-  rsiBuyInThreshold: 45,
+  rsiBuyInThreshold: 50,
   // stage 3 'MACD less than <minimumMACDLevel>'
   minimumMACDLevel: 0,
   // stage 4 'MACD closing' - takes <macdPriceLookupPeriod> period(s) and then uses <divergenceDistance> to
@@ -29,7 +31,7 @@ exports.greeny = {
   // <macdConvergenceThreshold> the minimum distance between max histogram value and current histogram value
   macdConvergenceThreshold: 0.998,
   // <macdSignalCrossedThreshold> how far away from signal line can macd be before considering it a good buy
-  macdSignalCrossedThreshold: 1.1,
+  macdSignalCrossedThreshold: 1.18,
   // <macdPriceLookupPeriod> the amount of periods to find a max macd to get a V shape close
   macdPriceLookupPeriod: 3,
   // <divergenceDistance> the location to look for a max macd within the lookup period
@@ -121,7 +123,12 @@ exports.greeny = {
       //   console.log('Profitable crossing down onto ema 50')
       //   return { signal: true, alreadyCrossedEma50: false }
       // }
-      if ((ema20*config.ema20Above50Modifier) >= ema50) {
+      if (currentPrice < (ema50*config.ema50SLThreshold)&& (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
+        greenyLogs('Down cross on ema50 selling off...')
+        console.log('Down cross on ema50 selling off...')
+        return { signal: true, alreadyCrossedEma50: false}
+      }
+      if ((ema20*config.ema20Above50Modifier) >= ema50 && (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
         greenyLogs('Ema20 Crossing up on ema50')
         console.log('Ema20 Crossing up on ema50')
         if (currentPrice <= (ema20*config.ema20TPModifier) && currentPrice > currentHoldings.price && (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
