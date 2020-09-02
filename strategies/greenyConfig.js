@@ -15,7 +15,7 @@ exports.greeny = {
   // <emaModifier> used to counteract minor calculation error of ema
   emaModifier: 1, // 0.9998
   // <ema50SLThreshold> acts as a trailing stop loss
-  ema50SLThreshold: 0.997,
+  ema50SLThreshold: 0.998,
   // <ema20Above50Modifier> how much over ema20 should be over ema50 before TP
   ema20Above50Modifier: 0.9995,
   // <ema20TPModifier> how much above ema20 to tp

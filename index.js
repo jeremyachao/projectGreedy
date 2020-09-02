@@ -207,7 +207,7 @@ const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionT
           quantity: config.BUY_QUANTITY,
           type: 'MARKET'
         })
-        transactionLogs(buyOrder)
+        transactionLogs(JSON.stringify(buyOrder))
         console.log(buyOrder)
       }
       if (result.decision.decision === 'SELL') {
@@ -218,7 +218,7 @@ const _feedThroughWebSocket = async ({client, websocket, historicRates, sessionT
           quantity: config.BUY_QUANTITY - (config.BUY_QUANTITY * wallet.takerFee),
           type: 'MARKET'
         })
-        transactionLogs(sellOrder)
+        transactionLogs(JSON.stringify(sellOrder))
         console.log(sellOrder)
       }
       counter = period
