@@ -275,10 +275,10 @@ const main = async () => {
   }
   const strategy = { strategy: strategies.greenyNotGreedy, strategyPreprocessing: strategies.greenyPreprocessing }
   const historicRates = await _getHistoricRates({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT, startEnd: false})
-  _feedThroughWebSocket({client: binanceClient, websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy, instrument: config.BINANCE_INSTRUMENT})
+  // _feedThroughWebSocket({client: binanceClient, websocket, historicRates, sessionTransactions, wallet, strategy: strategies.greenyNotGreedy, instrument: config.BINANCE_INSTRUMENT})
 
   // const historicRatesPeriodTest = await _getHistoricRatesPeriodTest({ clientMethod: binanceClient.candles, strategyPreprocessing: strategy.strategyPreprocessing, instrument: config.BINANCE_INSTRUMENT})
-  // _feedThroughTestEnvironment({ historicRates, sessionTransactions, wallet, strategy: strategy.strategy})
+  _feedThroughTestEnvironment({ historicRates, sessionTransactions, wallet, strategy: strategy.strategy})
 
 
 

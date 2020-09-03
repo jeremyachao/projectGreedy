@@ -13,9 +13,9 @@ exports.greeny = {
   // stage 1 'Price under ema by atleast <crossedEmaThreshold>%'
   crossedEmaThreshold: 0.99995,
   // <emaModifier> used to counteract minor calculation error of ema
-  emaModifier: 1, // 0.9998
+  emaModifier: 0.999, // 0.9998
   // <ema50SLThreshold> acts as a trailing stop loss
-  ema50SLThreshold: 0.998,
+  ema50SLThreshold: 0.999,
   // <ema20Above50Modifier> how much over ema20 should be over ema50 before TP
   ema20Above50Modifier: 0.9995,
   // <ema20TPModifier> how much above ema20 to tp
@@ -30,6 +30,8 @@ exports.greeny = {
   // calulate whether or not MACD is closing
   // <macdConvergenceThreshold> the minimum distance between max histogram value and current histogram value
   macdConvergenceThreshold: 0.998,
+  // <minimumHistogramValue> minimum value of histogram bar
+  minimumHistogramValue: -0.3,
   // <macdSignalCrossedThreshold> how far away from signal line can macd be before considering it a good buy
   macdSignalCrossedThreshold: 1.18,
   // <macdPriceLookupPeriod> the amount of periods to find a max macd to get a V shape close
@@ -58,7 +60,7 @@ exports.greeny = {
           }
           // furthest divergence should be middle number of MACDS BELOW 0 so always negative hence >
           let divergence = config.divergenceDistance(config.macdPriceLookupPeriod)
-          if (mostRecentPriceData.macd.histogram > (macdSlice[divergence].macd.histogram * config.macdConvergenceThreshold)) {
+          if (mostRecentPriceData.macd.histogram > (macdSlice[divergence].macd.histogram * config.macdConvergenceThreshold) && macdSlice[divergence].macd.histogram < config.minimumHistogramValue) {
 
             greenyLogs('>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<')
             greenyLogs(mostRecentTime)
@@ -124,8 +126,8 @@ exports.greeny = {
       //   return { signal: true, alreadyCrossedEma50: false }
       // }
       if (currentPrice < (ema50*config.ema50SLThreshold)&& (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
-        greenyLogs('Down cross on ema50 selling off...')
-        console.log('Down cross on ema50 selling off...')
+        greenyLogs('Down cross on non modified ema50 selling off...')
+        console.log('Down cross on non modified ema50 selling off...')
         return { signal: true, alreadyCrossedEma50: false}
       }
       if ((ema20*config.ema20Above50Modifier) >= ema50 && (currentPrice-currentHoldings.price)*currentHoldings.units > (currentHoldings.units*currentPrice)*0.001) {
